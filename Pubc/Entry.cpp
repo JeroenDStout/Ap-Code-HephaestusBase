@@ -4,14 +4,14 @@
 #include <chrono>
 #include <iomanip>
 
-#include "BlackRoot\Math Types.h"
-#include "BlackRoot\Threaded IO Stream.h"
+#include "BlackRoot/Pubc/Math Types.h"
+#include "BlackRoot/Pubc/Threaded IO Stream.h"
 
-#include "Toolbox\Base Messages.h"
-#include "Toolbox\Environment Bootstrap.h"
+#include "ToolboxBase/Pubc/Base Messages.h"
+#include "ToolboxBase/Pubc/Environment Bootstrap.h"
 
-#include "Hephaestus\Repo.h"
-#include "Hephaestus\Environment.h"
+#include "HephaestusBase/Pubc/Repo.h"
+#include "HephaestusBase/Pubc/Environment.h"
 
 
 void envTask(Hephaestus::Core::Environment * env) {

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Toolbox\Base Environment.h"
-#include "Hephaestus\Interface Pipeline.h"
+#include "ToolboxBase/Pubc/Base Environment.h"
+#include "HephaestusBase/Pubc/Interface Pipeline.h"
 
 namespace Hephaestus {
 namespace Core {

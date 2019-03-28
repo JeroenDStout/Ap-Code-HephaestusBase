@@ -22,7 +22,6 @@
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{926E1D65-2E57-444C-B6B1-B58985DB9772}</ProjectGuid>
     <RootNamespace>Hephaestus</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -90,6 +89,10 @@
       <PreprocessorDefinitions>__PROJECT__=HephaestusBase;__PROJECTSTR__="HephaestusBase Base";%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <PreBuildEvent />
+    <Link>
+      <AdditionalDependencies>Black Root.lib;Toolbox Base.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)../../BlackRoot/.bin/$(Platform)/$(Configuration)/;$(MSBuildThisFileDirectory)../../ToolboxBase/.bin/$(Platform)/$(Configuration)/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -100,6 +103,10 @@
       <PreprocessorDefinitions>__PROJECT__=HephaestusBase;__PROJECTSTR__="HephaestusBase Base";%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <PreBuildEvent />
+    <Link>
+      <AdditionalDependencies>Black Root.lib;Toolbox Base.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)../../BlackRoot/.bin/$(Platform)/$(Configuration)/;$(MSBuildThisFileDirectory)../../ToolboxBase/.bin/$(Platform)/$(Configuration)/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -114,6 +121,7 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)../../BlackRoot/.bin/$(Platform)/$(Configuration)/;$(MSBuildThisFileDirectory)../../ToolboxBase/.bin/$(Platform)/$(Configuration)/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent />
   </ItemDefinitionGroup>
@@ -130,6 +138,7 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)../../BlackRoot/.bin/$(Platform)/$(Configuration)/;$(MSBuildThisFileDirectory)../../ToolboxBase/.bin/$(Platform)/$(Configuration)/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent />
   </ItemDefinitionGroup>

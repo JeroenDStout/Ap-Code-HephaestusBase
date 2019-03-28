@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Hephaestus/Interface Pipeline.h"
+#include "HephaestusBase/Pubc/Interface Pipeline.h"
 
 namespace Hephaestus {
 namespace Base {

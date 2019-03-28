@@ -1,7 +1,7 @@
 #pragma once
 
-#include "BlackRoot\JSON.h"
-#include "Toolbox\Base Messages.h"
+#include "BlackRoot/Pubc/JSON.h"
+#include "ToolboxBase/Pubc/Base Messages.h"
 
 namespace Hephaestus {
 namespace Core {

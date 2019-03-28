@@ -7,30 +7,24 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Repo.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="Entry.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="Environment.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="Base Pipeline.cpp">
+    <ClCompile Include="../Pubc/Base Pipeline.cpp" />
+    <ClCompile Include="../Pubc/Entry.cpp" />
+    <ClCompile Include="../Pubc/Repo.cpp" />
+    <ClCompile Include="../Pubc/Environment.cpp">
       <Filter>Core</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Repo.h">
+    <ClInclude Include="../Pubc/Base Pipeline.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Environment.h">
+    <ClInclude Include="../Pubc/Environment.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Base Pipeline.h">
+    <ClInclude Include="../Pubc/Interface Pipeline.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Interface Pipeline.h">
+    <ClInclude Include="../Pubc/Repo.h">
       <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
