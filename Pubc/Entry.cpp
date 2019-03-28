@@ -1,0 +1,62 @@
+#include <iostream>
+#include <string>
+#include <thread>
+#include <chrono>
+#include <iomanip>
+
+#include "BlackRoot\Math Types.h"
+#include "BlackRoot\Threaded IO Stream.h"
+
+#include "Toolbox\Base Messages.h"
+#include "Toolbox\Environment Bootstrap.h"
+
+#include "Hephaestus\Repo.h"
+#include "Hephaestus\Environment.h"
+
+
+void envTask(Hephaestus::Core::Environment * env) {
+	env->Run();
+}
+
+#include <cstdio>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <array>
+#include <complex>
+
+int main(int argc, char* argv[])
+{
+    using cout = BlackRoot::Util::Cout;
+
+    cout{} << Hephaestus::Core::GetVersionString() << std::endl << std::endl;
+
+	Hephaestus::Core::Environment * environment = new Hephaestus::Core::Environment();
+	Toolbox::Core::SetEnvironment(environment);
+	std::thread t1(envTask, environment);
+    
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    Toolbox::Util::EnvironmentBootstrap bootstrap(environment);
+    if (!bootstrap.HasStartupFile()) {
+        cout{} << "Default start-up" << std::endl;
+
+        if (!bootstrap.ExecuteFromString( R"(
+            { "serious" : [{ "env" : [ "createSocketMan" ] },
+                           { "env" : [ "createPipeline" ] }
+                          ]
+            } )" ))
+        {
+            cout{} << "Cannot recover from startup errors" << std::endl;
+            goto End;
+        }
+    }
+
+End:
+    t1.join();
+    
+    environment->UnloadAll();
+
+    delete environment;
+}
