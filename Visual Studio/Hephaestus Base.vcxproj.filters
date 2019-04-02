@@ -5,26 +5,41 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
     </Filter>
+    <Filter Include="Environment">
+      <UniqueIdentifier>{f8ffb082-ba43-4104-9070-c19d6d67c906}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Pipeline">
+      <UniqueIdentifier>{2a94a0ca-8408-4871-ab2f-b11aff443fd6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="../Pubc/Base Pipeline.cpp" />
-    <ClCompile Include="../Pubc/Entry.cpp" />
-    <ClCompile Include="../Pubc/Repo.cpp" />
-    <ClCompile Include="../Pubc/Environment.cpp">
+    <ClCompile Include="../Pubc/Entry.cpp">
       <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Pubc\Version.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="../Pubc/Environment.cpp">
+      <Filter>Environment</Filter>
+    </ClCompile>
+    <ClCompile Include="../Pubc/Base Pipeline.cpp">
+      <Filter>Pipeline</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="../Pubc/Base Pipeline.h">
+    <ClInclude Include="..\Pubc\Version.h">
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="../Pubc/Environment.h">
-      <Filter>Core</Filter>
+      <Filter>Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="../Pubc/Base Pipeline.h">
+      <Filter>Pipeline</Filter>
     </ClInclude>
     <ClInclude Include="../Pubc/Interface Pipeline.h">
-      <Filter>Core</Filter>
+      <Filter>Pipeline</Filter>
     </ClInclude>
-    <ClInclude Include="../Pubc/Repo.h">
+    <ClInclude Include="..\Pubc\Register.h">
       <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>

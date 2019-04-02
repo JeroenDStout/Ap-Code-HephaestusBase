@@ -10,9 +10,10 @@
 #include "ToolboxBase/Pubc/Base Messages.h"
 #include "ToolboxBase/Pubc/Environment Bootstrap.h"
 
-#include "HephaestusBase/Pubc/Repo.h"
+#include "HephaestusBase/Pubc/Version.h"
 #include "HephaestusBase/Pubc/Environment.h"
 
+#include "HephaestusBase/Pubc/Register.h"
 
 void envTask(Hephaestus::Core::Environment * env) {
 	env->Run();
@@ -30,7 +31,7 @@ int main(int argc, char* argv[])
 {
     using cout = BlackRoot::Util::Cout;
 
-    cout{} << Hephaestus::Core::GetVersionString() << std::endl << std::endl;
+    cout{} << BlackRoot::Repo::VersionRegistry::GetVersionString() << std::endl << std::endl;
 
 	Hephaestus::Core::Environment * environment = new Hephaestus::Core::Environment();
 	Toolbox::Core::SetEnvironment(environment);
