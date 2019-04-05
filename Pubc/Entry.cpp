@@ -11,6 +11,7 @@
 #include "BlackRoot/Pubc/Math Types.h"
 #include "BlackRoot/Pubc/Threaded IO Stream.h"
 
+#include "ToolboxBase/Pubc/Entry.h"
 #include "ToolboxBase/Pubc/Base Messages.h"
 #include "ToolboxBase/Pubc/Environment Bootstrap.h"
 
@@ -31,7 +32,7 @@ void envTask(Hephaestus::Core::Environment * env) {
 #include <array>
 #include <complex>
 
-int main(int argc, char* argv[])
+int hepMain(Toolbox::Util::EnvironmentBootstrap &bootstrap)
 {
     using cout = BlackRoot::Util::Cout;
 
@@ -43,15 +44,16 @@ int main(int argc, char* argv[])
     
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    Toolbox::Util::EnvironmentBootstrap bootstrap(environment);
-    if (!bootstrap.HasStartupFile()) {
+    bootstrap.Environment = environment;
+
+    if (!bootstrap.ExecuteFromBootFile()) {
         cout{} << "Default start-up" << std::endl;
 
-        if (!bootstrap.ExecuteFromString( R"(
-            { "serious" : [{ "env" : [ "createSocketMan" ] },
-                           { "env" : [ "createPipeline" ] }
-                          ]
-            } )" ))
+        if (!bootstrap.ExecuteFromJSON( R"(
+                { "serious" : [{ "env" : [ "createSocketMan" ] },
+                               { "env" : [ "createPipeline" ] }
+                              ]
+                } )"_json ))
         {
             cout{} << "Cannot recover from startup errors" << std::endl;
             goto End;
@@ -64,4 +66,8 @@ End:
     environment->UnloadAll();
 
     delete environment;
+
+    return 0;
 }
+
+TB_STARTFUNC_DEF(hepMain);
