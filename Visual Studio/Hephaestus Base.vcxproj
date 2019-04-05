@@ -130,6 +130,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)../../BlackRoot/.bin/$(Platform)/$(Configuration)/;$(MSBuildThisFileDirectory)../../ToolboxBase/.bin/$(Platform)/$(Configuration)/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
+      <AdditionalDependencies>Black Root.lib;Toolbox Base.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent />
     <ProjectReference>
@@ -150,6 +151,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)../../BlackRoot/.bin/$(Platform)/$(Configuration)/;$(MSBuildThisFileDirectory)../../ToolboxBase/.bin/$(Platform)/$(Configuration)/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
+      <AdditionalDependencies>Black Root.lib;Toolbox Base.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent />
     <ProjectReference>
