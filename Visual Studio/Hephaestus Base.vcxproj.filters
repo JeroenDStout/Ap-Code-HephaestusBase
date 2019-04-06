@@ -8,11 +8,11 @@
     <Filter Include="Environment">
       <UniqueIdentifier>{f8ffb082-ba43-4104-9070-c19d6d67c906}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Pipeline">
-      <UniqueIdentifier>{2a94a0ca-8408-4871-ab2f-b11aff443fd6}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Meta">
       <UniqueIdentifier>{b6764f48-b059-4c2e-8e7f-af85b661fdc5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Pipeline">
+      <UniqueIdentifier>{2a94a0ca-8408-4871-ab2f-b11aff443fd6}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -26,6 +26,9 @@
       <Filter>Environment</Filter>
     </ClCompile>
     <ClCompile Include="../Pubc/Base Pipeline.cpp">
+      <Filter>Environment</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Pubc\Change Monitor.cpp">
       <Filter>Pipeline</Filter>
     </ClCompile>
   </ItemGroup>
@@ -36,20 +39,20 @@
     <ClInclude Include="../Pubc/Environment.h">
       <Filter>Environment</Filter>
     </ClInclude>
-    <ClInclude Include="../Pubc/Base Pipeline.h">
-      <Filter>Pipeline</Filter>
-    </ClInclude>
-    <ClInclude Include="../Pubc/Interface Pipeline.h">
-      <Filter>Pipeline</Filter>
-    </ClInclude>
     <ClInclude Include="..\Pubc\Register.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="../Pubc/Base Pipeline.h">
+      <Filter>Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="../Pubc/Interface Pipeline.h">
+      <Filter>Environment</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Pubc\Change Monitor.h">
+      <Filter>Pipeline</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\Meta\generate_meta.txt">
-      <Filter>Meta</Filter>
-    </Text>
     <Text Include="..\Meta\licence_name.txt">
       <Filter>Meta</Filter>
     </Text>
@@ -61,5 +64,8 @@
     <None Include="..\Meta\contributors.json">
       <Filter>Meta</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="..\Meta\generate_meta.txt" />
   </ItemGroup>
 </Project>
