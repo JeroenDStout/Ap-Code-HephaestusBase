@@ -35,8 +35,8 @@ void envTask(Hephaestus::Core::Environment * env) {
 int hepMain(Toolbox::Util::EnvironmentBootstrap &bootstrap)
 {
     using cout = BlackRoot::Util::Cout;
-
-    cout{} << BlackRoot::Repo::VersionRegistry::GetVersionString() << std::endl << std::endl;
+    
+    cout{} << BlackRoot::Repo::VersionRegistry::GetBootString() << std::endl << std::endl;
 
 	Hephaestus::Core::Environment * environment = new Hephaestus::Core::Environment();
 	Toolbox::Core::SetEnvironment(environment);

@@ -11,6 +11,9 @@
     <Filter Include="Pipeline">
       <UniqueIdentifier>{2a94a0ca-8408-4871-ab2f-b11aff443fd6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Meta">
+      <UniqueIdentifier>{b6764f48-b059-4c2e-8e7f-af85b661fdc5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="../Pubc/Entry.cpp">
@@ -42,5 +45,21 @@
     <ClInclude Include="..\Pubc\Register.h">
       <Filter>Core</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\Meta\generate_meta.txt">
+      <Filter>Meta</Filter>
+    </Text>
+    <Text Include="..\Meta\licence_name.txt">
+      <Filter>Meta</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Meta\libraries.json">
+      <Filter>Meta</Filter>
+    </None>
+    <None Include="..\Meta\contributors.json">
+      <Filter>Meta</Filter>
+    </None>
   </ItemGroup>
 </Project>

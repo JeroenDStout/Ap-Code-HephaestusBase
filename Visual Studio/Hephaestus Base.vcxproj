@@ -97,6 +97,10 @@
     <ProjectReference>
       <UseLibraryDependencyInputs>true</UseLibraryDependencyInputs>
     </ProjectReference>
+    <PreBuildEvent>
+      <Command>cd ../meta
+../../BlackRoot/meta/create_repo_version.bat "$(ProjectName)"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -115,6 +119,10 @@
     <ProjectReference>
       <UseLibraryDependencyInputs>true</UseLibraryDependencyInputs>
     </ProjectReference>
+    <PreBuildEvent>
+      <Command>cd ../meta
+../../BlackRoot/meta/create_repo_version.bat "$(ProjectName)"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -129,13 +137,17 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)../../BlackRoot/.bin/$(Platform)/$(Configuration)/;$(MSBuildThisFileDirectory)../../ToolboxBase/.bin/$(Platform)/$(Configuration)/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <AdditionalDependencies>Black Root.lib;Toolbox Base.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent />
     <ProjectReference>
       <UseLibraryDependencyInputs>true</UseLibraryDependencyInputs>
     </ProjectReference>
+    <PreBuildEvent>
+      <Command>cd ../meta
+../../BlackRoot/meta/create_repo_version.bat "$(ProjectName)"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -150,13 +162,17 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)../../BlackRoot/.bin/$(Platform)/$(Configuration)/;$(MSBuildThisFileDirectory)../../ToolboxBase/.bin/$(Platform)/$(Configuration)/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <AdditionalDependencies>Black Root.lib;Toolbox Base.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent />
     <ProjectReference>
       <UseLibraryDependencyInputs>true</UseLibraryDependencyInputs>
     </ProjectReference>
+    <PreBuildEvent>
+      <Command>cd ../meta
+../../BlackRoot/meta/create_repo_version.bat "$(ProjectName)"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="../Pubc/Base Pipeline.cpp" />
@@ -170,6 +186,38 @@
     <ClInclude Include="../Pubc/Interface Pipeline.h" />
     <ClInclude Include="..\Pubc\Register.h" />
     <ClInclude Include="..\Pubc\Version.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\Meta\licence_name.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="..\Meta\generate_meta.txt">
+      <FileType>Document</FileType>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Generating meta</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Generating meta</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Generating meta</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Generating meta</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">py "$(SolutionDir)../BlackRoot/Meta/generate_meta.py" "$(ProjectName)" "$(ProjectDir)../Meta" "$(ProjectDir)../.genc"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">py "$(SolutionDir)../BlackRoot/Meta/generate_meta.py" "$(ProjectName)" "$(ProjectDir)../Meta" "$(ProjectDir)../.genc"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">py "$(SolutionDir)../BlackRoot/Meta/generate_meta.py" "$(ProjectName)" "$(ProjectDir)../Meta" "$(ProjectDir)../.genc"</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">py "$(SolutionDir)../BlackRoot/Meta/generate_meta.py" "$(ProjectName)" "$(ProjectDir)../Meta" "$(ProjectDir)../.genc"</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(ProjectDir)..\.genc\def_contribute.h</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(ProjectDir)..\.genc\def_contribute.h</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)..\.genc\def_contribute.h</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)..\.genc\def_contribute.h</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(ProjectDir)..\meta\contributors.json;$(ProjectDir)..\meta\libraries.json</AdditionalInputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(ProjectDir)..\meta\contributors.json;$(ProjectDir)..\meta\libraries.json</AdditionalInputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)..\meta\contributors.json;$(ProjectDir)..\meta\libraries.json</AdditionalInputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)..\meta\contributors.json;$(ProjectDir)..\meta\libraries.json</AdditionalInputs>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</BuildInParallel>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</BuildInParallel>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildInParallel>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</BuildInParallel>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Meta\contributors.json" />
+    <None Include="..\Meta\libraries.json" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
