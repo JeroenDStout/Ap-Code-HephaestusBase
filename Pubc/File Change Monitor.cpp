@@ -10,12 +10,12 @@
 
 using namespace Hephaestus::Pipeline;
 
-ChangeMonitor::ChangeMonitor()
+FileChangeMonitor::FileChangeMonitor()
 {
     this->CurrentState = State::Stopped;
 }
 
-ChangeMonitor::~ChangeMonitor()
+FileChangeMonitor::~FileChangeMonitor()
 {
     using cout = BlackRoot::Util::Cout;
 
@@ -24,7 +24,7 @@ ChangeMonitor::~ChangeMonitor()
     }
 }
 
-void ChangeMonitor::InternalUpdateCycle()
+void FileChangeMonitor::InternalUpdateCycle()
 {
     while (this->TargetState == State::Running) {
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
@@ -34,18 +34,18 @@ void ChangeMonitor::InternalUpdateCycle()
     }
 }
 
-void ChangeMonitor::InternalUpdateDirtyFiles()
+void FileChangeMonitor::InternalUpdateDirtyFiles()
 {
 
 }
 
-void ChangeMonitor::InternalHandleThreadException(BlackRoot::Debug::Exception * e)
+void FileChangeMonitor::InternalHandleThreadException(BlackRoot::Debug::Exception * e)
 {
     // TODO
     throw e;
 }
 
-void ChangeMonitor::Begin()
+void FileChangeMonitor::Begin()
 {
     using cout = BlackRoot::Util::Cout;
 
@@ -75,7 +75,7 @@ void ChangeMonitor::Begin()
     });
 }
 
-void ChangeMonitor::EndAndWait()
+void FileChangeMonitor::EndAndWait()
 {
     this->TargetState = State::Stopped;
     this->UpdateThread.join();

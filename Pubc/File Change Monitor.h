@@ -35,7 +35,7 @@ namespace Pipeline {
 
     }
 
-    class ChangeMonitor {
+    class FileChangeMonitor {
     protected:
         struct State {
             using Type = uint8_t;
@@ -55,8 +55,8 @@ namespace Pipeline {
         std::mutex                  MutexAccessFiles;
 
     public:
-        ChangeMonitor();
-        ~ChangeMonitor();
+        FileChangeMonitor();
+        ~FileChangeMonitor();
 
         void    InternalUpdateCycle();
         void    InternalHandleThreadException(BlackRoot::Debug::Exception *);
