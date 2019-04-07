@@ -21,6 +21,10 @@ namespace Base {
 
         void Initialise(const BlackRoot::Format::JSON param) override;
         void Deinitialise(const BlackRoot::Format::JSON param) override;
+
+        void SetBaseHubPath(std::string);
+
+        TB_MESSAGES_DECLARE_MEMBER_FUNCTION(setBaseHubPath);
 	};
 
 }

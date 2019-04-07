@@ -16,6 +16,8 @@ namespace Core {
 
         virtual void Initialise(const BlackRoot::Format::JSON) = 0;
         virtual void Deinitialise(const BlackRoot::Format::JSON) = 0;
+
+        virtual void SetBaseHubPath(const std::string) = 0;
 	};
 
 }
