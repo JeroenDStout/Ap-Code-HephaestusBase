@@ -44,7 +44,7 @@ int hepMain(Toolbox::Util::EnvironmentBootstrap &bootstrap)
     
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    bootstrap.Environment = environment;
+    bootstrap.SetupEnvironment(environment);
 
     if (!bootstrap.ExecuteFromBootFile()) {
         cout{} << "Default start-up" << std::endl;
