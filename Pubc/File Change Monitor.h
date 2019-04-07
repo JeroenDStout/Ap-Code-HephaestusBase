@@ -19,12 +19,6 @@
 namespace Hephaestus {
 namespace Pipeline {
 
-    struct ChangeMonitorInstr {
-        std::string     MainHub;
-
-        void SetDefault();
-    };
-
     namespace Monitor {
 
         using InternalID = uint32;
@@ -68,8 +62,6 @@ namespace Pipeline {
         void    InternalHandleThreadException(BlackRoot::Debug::Exception *);
 
         void    InternalUpdateDirtyFiles();
-
-        void    Initialise(ChangeMonitorInstr);
 
         void    Begin();
         void    EndAndWait();

@@ -8,13 +8,23 @@
 
 #pragma once
 
+#include "ToolboxBase/Pubc/Base Messages.h"
+
 #include "HephaestusBase/Pubc/Interface Pipeline.h"
+#include "HephaestusBase/Pubc/File Change Monitor.h"
 
 namespace Hephaestus {
 namespace Base {
 
 	class Pipeline : public Hephaestus::Core::IPipeline {
         TB_MESSAGES_DECLARE_RECEIVER(Pipeline, Hephaestus::Core::IPipeline);
+
+    protected:
+        struct __Pipeprops {
+
+
+
+        } Pipeprops;
 
 	public:
         ~Pipeline() override { ; }

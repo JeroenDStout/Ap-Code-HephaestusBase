@@ -28,7 +28,7 @@
     <ClCompile Include="../Pubc/Base Pipeline.cpp">
       <Filter>Environment</Filter>
     </ClCompile>
-    <ClCompile Include="..\Pubc\Change Monitor.cpp">
+    <ClCompile Include="..\Pubc\File Change Monitor.cpp">
       <Filter>Pipeline</Filter>
     </ClCompile>
   </ItemGroup>
@@ -48,7 +48,7 @@
     <ClInclude Include="../Pubc/Interface Pipeline.h">
       <Filter>Environment</Filter>
     </ClInclude>
-    <ClInclude Include="..\Pubc\Change Monitor.h">
+    <ClInclude Include="..\Pubc\File Change Monitor.h">
       <Filter>Pipeline</Filter>
     </ClInclude>
   </ItemGroup>
