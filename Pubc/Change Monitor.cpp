@@ -27,8 +27,16 @@ ChangeMonitor::~ChangeMonitor()
 void ChangeMonitor::InternalUpdateCycle()
 {
     while (this->TargetState == State::Running) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+        std::unique_lock<std::mutex> lock(this->MutexAccessFiles);
+        this->InternalUpdateDirtyFiles();
     }
+}
+
+void ChangeMonitor::InternalUpdateDirtyFiles()
+{
+
 }
 
 void ChangeMonitor::InternalHandleThreadException(BlackRoot::Debug::Exception * e)
@@ -51,6 +59,8 @@ void ChangeMonitor::Begin()
     this->UpdateThread = std::thread([&] {
         BlackRoot::System::SetCurrentThreadPriority(BlackRoot::System::ThreadPriority::Lowest);
 
+        cout{} << "Starting ChangeMontor thread." << std::endl;
+
         this->CurrentState = State::Running;
         try {
             this->InternalUpdateCycle();
@@ -58,6 +68,9 @@ void ChangeMonitor::Begin()
         catch (BlackRoot::Debug::Exception * e) {
             this->InternalHandleThreadException(e);
         }
+
+        cout{} << "ChangeMontor thread ended." << std::endl;
+
         this->CurrentState = State::Stopped;
     });
 }
