@@ -180,6 +180,7 @@
     <ClCompile Include="../Pubc/Environment.cpp" />
     <ClCompile Include="..\Pubc\File Change Monitor.cpp" />
     <ClCompile Include="..\Pubc\Version.cpp" />
+    <ClCompile Include="Interface Pipeline.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="../Pubc/Base Pipeline.h" />

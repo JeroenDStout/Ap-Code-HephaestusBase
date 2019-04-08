@@ -31,6 +31,9 @@
     <ClCompile Include="..\Pubc\File Change Monitor.cpp">
       <Filter>Pipeline</Filter>
     </ClCompile>
+    <ClCompile Include="Interface Pipeline.cpp">
+      <Filter>Environment</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Pubc\Version.h">
@@ -66,6 +69,8 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="..\Meta\generate_meta.txt" />
+    <CustomBuild Include="..\Meta\generate_meta.txt">
+      <Filter>Meta</Filter>
+    </CustomBuild>
   </ItemGroup>
 </Project>
