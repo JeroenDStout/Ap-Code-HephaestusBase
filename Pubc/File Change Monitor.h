@@ -14,7 +14,7 @@
 #include <map>
 
 #include "BlackRoot/Pubc/Number Types.h"
-#include "BlackRoot/Pubc/Files.h"
+#include "BlackRoot/Pubc/Files Types.h"
 
 namespace Hephaestus {
 namespace Pipeline {
@@ -22,21 +22,39 @@ namespace Pipeline {
     namespace Monitor {
 
         using InternalID = uint32;
+        static const InternalID InternalIDNone = std::numeric_limits<InternalID>::max();
 
-        struct PathLink {
-        };
+        using TimePoint  = std::chrono::system_clock::time_point;
 
         struct HubFile {
-            InternalID                  ID;
-
-            BlackRoot::IO::FilePath     Path;
-            BlackRoot::IO::FileTime     LastChange;
         };
 
+        struct IMonitoredItem {
+            InternalID                  ID;
+
+            std::vector<InternalID>     ExistentialDependanciesHub;
+
+            BlackRoot::IO::FilePath     BasePath;
+            BlackRoot::IO::FileTime     LastChange;
+
+            TimePoint                    Timeout;
+
+            void    SetDefault();
+        };
+
+        template<typename type>
+        struct MonitoredItem : public IMonitoredItem {
+            using ElementType = type;
+
+            ElementType     *Element;
+        };
     }
 
     class FileChangeMonitor {
     protected:
+        using InternalID  = Monitor::InternalID;
+        using MonHubFile  = Monitor::MonitoredItem<Monitor::HubFile>;
+
         struct State {
             using Type = uint8_t;
             enum {
@@ -46,13 +64,17 @@ namespace Pipeline {
             };
         };
 
-        std::atomic<State::Type>    CurrentState, TargetState;
-        std::thread                 UpdateThread;
+        std::unique_ptr<BlackRoot::IO::IFileSource> FileSource;
+        
+        std::atomic<InternalID>             NextID;
 
-        std::map<Monitor::InternalID, Monitor::HubFile>    HubFiles;
-        std::vector<Monitor::InternalID>                   DirtyHubFiles;
+        std::atomic<State::Type>            CurrentState, TargetState;
+        std::thread                         UpdateThread;
 
-        std::mutex                  MutexAccessFiles;
+        std::map<InternalID, MonHubFile>    HubFiles;
+        std::vector<InternalID>             DirtyHubFiles;
+
+        std::mutex                          MutexAccessFiles;
 
     public:
         FileChangeMonitor();
@@ -62,6 +84,17 @@ namespace Pipeline {
         void    InternalHandleThreadException(BlackRoot::Debug::Exception *);
 
         void    InternalUpdateDirtyFiles();
+
+        void    InternalRemoveAllHubFiles();
+
+        bool    InternalShouldInterrupt();
+
+        InternalID    InternalAddHubFile(const BlackRoot::IO::FilePath);
+        void          InternalUpdateHubFile(InternalID);
+
+        std::string   SimpleFormatDuration(long long);
+
+        void    UpdateBaseHubFile(const BlackRoot::IO::FilePath);
 
         void    Begin();
         void    EndAndWait();
