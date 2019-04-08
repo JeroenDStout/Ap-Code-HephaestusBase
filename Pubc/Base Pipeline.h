@@ -22,9 +22,11 @@ namespace Base {
     protected:
         struct __Pipeprops {
 
+            bool        ProcessingActive;
 
+            Hephaestus::Pipeline::FileChangeMonitor     Monitor;
 
-        } Pipeprops;
+        } PipeProps;
 
 	public:
         ~Pipeline() override { ; }
@@ -32,7 +34,10 @@ namespace Base {
         void Initialise(const BlackRoot::Format::JSON param) override;
         void Deinitialise(const BlackRoot::Format::JSON param) override;
 
-        void SetBaseHubPath(std::string);
+        void SetBaseHubPath(const BlackRoot::IO::FilePath) override;
+        
+        void StartProcessing() override;
+        void StopProcessing() override;
 
         TB_MESSAGES_DECLARE_MEMBER_FUNCTION(setBaseHubPath);
 	};
