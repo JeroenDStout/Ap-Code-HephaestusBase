@@ -11,6 +11,7 @@
 #include "HephaestusBase/Pubc/Base Pipeline.h"
 
 using namespace Hephaestus::Base;
+namespace fs = std::experimental::filesystem;
 
 TB_MESSAGES_BEGIN_DEFINE(Pipeline);
 
@@ -33,7 +34,7 @@ void Pipeline::AddBaseHubFile(BlackRoot::IO::FilePath str)
     using FilePath  = BlackRoot::IO::FilePath;
 
     FilePath base = Toolbox::Core::GetEnvironment()->GetRefDir();
-    base = BlackRoot::System::MakePathCanonical(base / str);
+    base = fs::canonical(base / str);
 
     cout{} << "Pipeline adding hub file " << std::endl << " " << base << std::endl;
 
