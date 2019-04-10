@@ -2,8 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-/*
- *   Quality of this code: sketch
+/* {quality} This is very much a sketch
  */
 
 #pragma once
@@ -15,6 +14,7 @@
 
 #include "BlackRoot/Pubc/Number Types.h"
 #include "BlackRoot/Pubc/Files Types.h"
+#include "BlackRoot/Pubc/JSON.h"
 
 namespace Hephaestus {
 namespace Pipeline {
@@ -24,36 +24,45 @@ namespace Pipeline {
         using InternalID = uint32;
         static const InternalID InternalIDNone = std::numeric_limits<InternalID>::max();
 
-        using TimePoint  = std::chrono::system_clock::time_point;
+        using TimePoint       = std::chrono::system_clock::time_point;
+        using JSON            = BlackRoot::Format::JSON;
+        using Path            = BlackRoot::IO::FilePath;
+        using InternalIDList  = std::vector<InternalID>;
 
-        struct HubFile {
+        struct ProcessProperties {
+            std::unordered_map<std::string, std::string>    StringVariables;
+
+            void    SetDefault();
+            bool    Equals(const ProcessProperties);
         };
 
-        struct IMonitoredItem {
-            InternalID                  ID;
-
-            std::vector<InternalID>     ExistentialDependanciesHub;
-
-            BlackRoot::IO::FilePath     BasePath;
-            BlackRoot::IO::FileTime     LastChange;
-
-            TimePoint                    Timeout;
+        struct MonitoredPath {
+            Path                Path;
+            TimePoint           LastUpdate, Timeout;
 
             void    SetDefault();
         };
 
-        template<typename type>
-        struct MonitoredItem : public IMonitoredItem {
-            using ElementType = type;
+        struct HubProperties {
+            InternalIDList      PathDependencies;
 
-            ElementType     *Element;
+            InternalID          HubDependancy;
+            Path                Path;
+            TimePoint           LastUpdate, Timeout;
+
+            ProcessProperties   ProcessProp;
+
+            void    SetDefault();
+            bool    EqualsAbstractly(const HubProperties);
         };
+
     }
 
     class FileChangeMonitor {
     protected:
-        using InternalID  = Monitor::InternalID;
-        using MonHubFile  = Monitor::MonitoredItem<Monitor::HubFile>;
+        using InternalID      = Monitor::InternalID;
+        using MonPath         = Monitor::MonitoredPath;
+        using HubProp         = Monitor::HubProperties;
 
         struct State {
             using Type = uint8_t;
@@ -66,35 +75,46 @@ namespace Pipeline {
 
         std::unique_ptr<BlackRoot::IO::IFileSource> FileSource;
         
-        std::atomic<InternalID>             NextID;
+        std::atomic<InternalID>               NextID;
 
-        std::atomic<State::Type>            CurrentState, TargetState;
-        std::thread                         UpdateThread;
+        std::atomic<State::Type>              CurrentState, TargetState;
+        std::thread                           UpdateThread;
 
-        std::map<InternalID, MonHubFile>    HubFiles;
-        std::vector<InternalID>             DirtyHubFiles;
+        std::map<InternalID, MonPath>         MonitoredPaths;
+        std::map<InternalID, HubProp>         HubProperties;
+        
+        std::vector<InternalID>               SuspectPaths;
+        std::vector<InternalID>               DirtyHubs;
 
-        std::mutex                          MutexAccessFiles;
+        std::mutex                            MutexAccessFiles;
+        
+        void    UpdateCycle();
+        void    UpdateSuspectPaths();
+        void    UpdateSuspectPath(InternalID);
+        void    UpdateDirtyHubs();
+        void    UpdateDirtyHub(InternalID);
+
+        void    HandleThreadException(BlackRoot::Debug::Exception *);
+
+        bool    ShouldInterrupt();
+
+        InternalID    GetNewID();
+        
+        InternalID    FindOrAddMonitoredPath(Monitor::Path, Monitor::TimePoint * outPrevUpdate = nullptr);
+        InternalID    FindOrAddHub(HubProp, Monitor::TimePoint * outPrevUpdate = nullptr);
+
+        void     MakeUsersOfPathDirty(InternalID);
+
+        void     HandleMonitoredPathMissing(InternalID);
+        void     HandleMonitoredPathError(InternalID, BlackRoot::Debug::Exception*);
 
     public:
         FileChangeMonitor();
         ~FileChangeMonitor();
 
-        void    InternalUpdateCycle();
-        void    InternalHandleThreadException(BlackRoot::Debug::Exception *);
-
-        void    InternalUpdateDirtyFiles();
-
-        void    InternalRemoveAllHubFiles();
-
-        bool    InternalShouldInterrupt();
-
-        InternalID    InternalAddHubFile(const BlackRoot::IO::FilePath);
-        void          InternalUpdateHubFile(InternalID);
-
         std::string   SimpleFormatDuration(long long);
 
-        void    UpdateBaseHubFile(const BlackRoot::IO::FilePath);
+        void    AddBaseHubFile(const BlackRoot::IO::FilePath);
 
         void    Begin();
         void    EndAndWait();
