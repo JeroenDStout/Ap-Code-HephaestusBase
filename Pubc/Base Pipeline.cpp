@@ -15,7 +15,6 @@ using namespace Hephaestus::Base;
 TB_MESSAGES_BEGIN_DEFINE(Pipeline);
 
 TB_MESSAGES_ENUM_BEGIN_MEMBER_FUNCTIONS(Pipeline);
-TB_MESSAGES_ENUM_MEMBER_FUNCTION(Pipeline, setBaseHubPath);
 TB_MESSAGES_ENUM_END_MEMBER_FUNCTIONS(Pipeline);
 
 TB_MESSAGES_END_DEFINE(Pipeline);
@@ -28,7 +27,7 @@ void Pipeline::Deinitialise(const BlackRoot::Format::JSON param)
 {
 }
 
-void Pipeline::SetBaseHubPath(BlackRoot::IO::FilePath str)
+void Pipeline::AddBaseHubFile(BlackRoot::IO::FilePath str)
 {
     using cout      = BlackRoot::Util::Cout;
     using FilePath  = BlackRoot::IO::FilePath;
@@ -36,9 +35,9 @@ void Pipeline::SetBaseHubPath(BlackRoot::IO::FilePath str)
     FilePath base = Toolbox::Core::GetEnvironment()->GetRefDir();
     base = BlackRoot::System::MakePathCanonical(base / str);
 
-    cout{} << "Pipeline hub path is now" << std::endl << " " << base << std::endl;
+    cout{} << "Pipeline adding hub file " << std::endl << " " << base << std::endl;
 
-    this->PipeProps.Monitor.UpdateBaseHubFile(base);
+    this->PipeProps.Monitor.AddBaseHubFile(base);
 }
 
 void Pipeline::StartProcessing()
@@ -49,13 +48,4 @@ void Pipeline::StartProcessing()
 void Pipeline::StopProcessing()
 {
     this->PipeProps.Monitor.EndAndWait();
-}
-
-void Pipeline::_setBaseHubPath(Toolbox::Messaging::IAsynchMessage * msg)
-{
-    std::string s = msg->Message.begin().value();
-
-    this->SetBaseHubPath(s);
-
-    msg->SetOK();
 }

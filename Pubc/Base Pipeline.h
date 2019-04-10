@@ -34,12 +34,10 @@ namespace Base {
         void Initialise(const BlackRoot::Format::JSON param) override;
         void Deinitialise(const BlackRoot::Format::JSON param) override;
 
-        void SetBaseHubPath(const BlackRoot::IO::FilePath) override;
+        void AddBaseHubFile(const BlackRoot::IO::FilePath) override;
         
         void StartProcessing() override;
         void StopProcessing() override;
-
-        TB_MESSAGES_DECLARE_MEMBER_FUNCTION(setBaseHubPath);
 	};
 
 }
