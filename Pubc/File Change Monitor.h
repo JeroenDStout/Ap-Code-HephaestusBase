@@ -34,6 +34,9 @@ namespace Pipeline {
 
             void    SetDefault();
             bool    Equals(const ProcessProperties);
+
+            void         AdaptVariables(const JSON);
+            std::string  ProcessString(std::string);
         };
 
         struct MonitoredPath {
@@ -46,14 +49,21 @@ namespace Pipeline {
         struct HubProperties {
             InternalIDList      PathDependencies;
 
-            InternalID          HubDependancy;
+            InternalID          HubDependency;
             Path                Path;
-            TimePoint           LastUpdate, Timeout;
+            TimePoint           Timeout;
 
-            ProcessProperties   ProcessProp;
+            ProcessProperties   InputProcessProp;
 
             void    SetDefault();
             bool    EqualsAbstractly(const HubProperties);
+        };
+
+        struct PipeProperties {
+            InternalIDList      PathDependencies;
+
+            std::string         Tool;
+            Path                BasePathIn, BasePathOut;
         };
 
     }
@@ -84,15 +94,22 @@ namespace Pipeline {
         std::map<InternalID, HubProp>         HubProperties;
         
         std::vector<InternalID>               SuspectPaths;
-        std::vector<InternalID>               DirtyHubs;
+        std::vector<InternalID>               DirtyHubs, FutureDirtyHubs, OrphanedDirtyHubs;
 
         std::mutex                            MutexAccessFiles;
+
+        InternalID                            OriginalHubDependancy;
+
+        Monitor::Path                         InfoReferenceDirectory;
         
         void    UpdateCycle();
         void    UpdateSuspectPaths();
         void    UpdateSuspectPath(InternalID);
         void    UpdateDirtyHubs();
         void    UpdateDirtyHub(InternalID);
+        void    CleanupOrphanedHubs();
+
+        void    ProcessHubGroup(InternalID, const Monitor::ProcessProperties prop, Monitor::JSON group);
 
         void    HandleThreadException(BlackRoot::Debug::Exception *);
 
@@ -101,20 +118,26 @@ namespace Pipeline {
         InternalID    GetNewID();
         
         InternalID    FindOrAddMonitoredPath(Monitor::Path, Monitor::TimePoint * outPrevUpdate = nullptr);
-        InternalID    FindOrAddHub(HubProp, Monitor::TimePoint * outPrevUpdate = nullptr);
+        InternalID    FindOrAddHub(HubProp);
 
         void     MakeUsersOfPathDirty(InternalID);
+        void     MakeDependantsOnHubOrphan(InternalID);
 
         void     HandleMonitoredPathMissing(InternalID);
         void     HandleMonitoredPathError(InternalID, BlackRoot::Debug::Exception*);
+        void     HandleHubFileError(InternalID, BlackRoot::Debug::Exception*);
+
+        std::string   SimpleFormatHub(HubProp);
 
     public:
         FileChangeMonitor();
         ~FileChangeMonitor();
 
         std::string   SimpleFormatDuration(long long);
+        bool    PathContainsWildcards(const std::string);
 
         void    AddBaseHubFile(const BlackRoot::IO::FilePath);
+        void    SetReferenceDirectory(const BlackRoot::IO::FilePath);
 
         void    Begin();
         void    EndAndWait();

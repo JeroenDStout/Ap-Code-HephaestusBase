@@ -7,6 +7,7 @@
   *   action, that will becom a bottleneck.
   * - Property use move semantics
   * - Detect circular dependancies
+  * - Timeout for error files could increase upon repeated errors
   */
 
 #include <time.h>
@@ -17,10 +18,12 @@
 #include "BlackRoot/Pubc/Sys Path.h"
 #include "BlackRoot/Pubc/Files.h"
 #include "BlackRoot/Pubc/JSON.h"
+#include "BlackRoot/Pubc/Stringstream.h"
 
 #include "HephaestusBase/Pubc/File Change Monitor.h"
 
 using namespace Hephaestus::Pipeline;
+namespace fs = std::experimental::filesystem;
 
     //  Setup
     // --------------------
@@ -29,6 +32,8 @@ FileChangeMonitor::FileChangeMonitor()
 {
     this->NextID        = 0;
     this->CurrentState  = State::Stopped;
+
+    this->OriginalHubDependancy = this->GetNewID();
 
     this->FileSource.reset(new BlackRoot::IO::BaseFileSource(""));
 }
@@ -48,10 +53,19 @@ FileChangeMonitor::~FileChangeMonitor()
 void FileChangeMonitor::UpdateCycle()
 {
     while (this->TargetState == State::Running) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(250));
-
         std::unique_lock<std::mutex> lock(this->MutexAccessFiles);
         this->UpdateSuspectPaths();
+        this->UpdateDirtyHubs();
+
+        if (this->DirtyHubs.size() == 0 &&
+            this->FutureDirtyHubs.size() == 0) {
+            this->CleanupOrphanedHubs();
+        }
+
+        if (this->FutureDirtyHubs.size() == 0) {
+            lock.unlock();
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+        }
     }
 }
 
@@ -76,16 +90,21 @@ void FileChangeMonitor::UpdateSuspectPaths()
 
 void FileChangeMonitor::UpdateDirtyHubs()
 {
-    //while (this->DirtyHubs.size() > 0) {
-    //    if (this->ShouldInterrupt())
-    //        break;
+    this->DirtyHubs.insert(this->DirtyHubs.end(), this->FutureDirtyHubs.begin(), this->FutureDirtyHubs.end());
+    this->FutureDirtyHubs.resize(0);
+    this->DirtyHubs.insert(this->DirtyHubs.end(), this->OrphanedDirtyHubs.begin(), this->OrphanedDirtyHubs.end());
+    this->OrphanedDirtyHubs.resize(0);
 
-    //        // Select a single hub from our suspect list and try to update it
-    //        // If anything fails the update function will put it in the list again
-    //    auto id = *this->DirtyHubs.begin();
-    //    this->DirtyHubs.erase(this->DirtyHubs.begin());
-    //    this->UpdateDirtyHub(id);
-    //}
+    while (this->DirtyHubs.size() > 0) {
+        if (this->ShouldInterrupt())
+            break;
+
+            // Select a single hub from our suspect list and try to update it
+            // If anything fails the update function will put it in the list again
+        auto id = *this->DirtyHubs.begin();
+        this->DirtyHubs.erase(std::remove(this->DirtyHubs.begin(), this->DirtyHubs.end(), id), this->DirtyHubs.end());
+        this->UpdateDirtyHub(id);
+    }
 }
 
     //  Update paths
@@ -161,40 +180,128 @@ void FileChangeMonitor::UpdateSuspectPath(InternalID id)
 
 void FileChangeMonitor::UpdateDirtyHub(InternalID id)
 {
-    //namespace IO = BlackRoot::IO;
-    //using cout = BlackRoot::Util::Cout;
+    namespace IO = BlackRoot::IO;
+    using cout = BlackRoot::Util::Cout;
 
-    //    // Find the hub properties
-    //auto itProp = this->HubProperties.find(id);
-    //if (itProp == this->HubProperties.end())
-    //    return;
-    //auto & prop = itProp->second;
-    //
-    //    // Find the path properties
-    //auto pathProp = this->SinglePathProperties[prop.SinglePathDepID];
-    //
-    //cout{} << "Hub: " << pathProp.Path << std::endl;
+        // Use the current time as a reference for file changes
+    Monitor::TimePoint currentTime = std::chrono::system_clock::now();
 
-    //BlackRoot::IO::BaseFileSource::FCont contents;
-    //BlackRoot::Format::JSON jsonCont;
+        // Find the hub properties
+    auto itProp = this->HubProperties.find(id);
+    if (itProp == this->HubProperties.end())
+        return;
+    auto & prop = itProp->second;
 
-    //    // See if we can load the file contents as JSON
-    //try {
-    //    contents = this->FileSource->ReadFile(pathProp.Path, IO::FileMode::OpenInstr{}.Default().Share(IO::FileMode::Share::Read));
-    //    jsonCont = BlackRoot::Format::JSON::parse(contents);
-    //}
-    //catch (BlackRoot::Debug::Exception * e) {
-    //    this->HandleSingleFileError(prop.SinglePathDepID, e);
-    //    return;
-    //}
-    //catch (...) {
-    //    this->HandleSingleFileError(prop.SinglePathDepID, nullptr);
-    //    return;
-    //}
+        // If we are an orphan we shouldn't update, so add us to
+        // a special list to keep track of us
+    if (prop.HubDependency == Monitor::InternalIDNone) {
+        this->OrphanedDirtyHubs.push_back(id);
+        return;
+    }
 
-    //    // TODO: Actually use this
-    //
-    //cout{} << "Done." << std::endl;
+        // A timeout prevents a file from updating;
+        // if we are timed out just put us on the dirty list
+    if (prop.Timeout > currentTime) {
+        this->FutureDirtyHubs.push_back(id);
+        return;
+    }
+
+        // A timeout prevents a file from updating;
+        // if we are timed out just put us on the dirty list
+    if (prop.Timeout > currentTime) {
+        this->FutureDirtyHubs.push_back(id);
+        return;
+    }
+
+        // Make dependants orphan before we even complete the hub process
+    this->MakeDependantsOnHubOrphan(id);
+    
+    cout{} << "Hub: " << this->SimpleFormatHub(prop) << std::endl;
+
+    BlackRoot::IO::BaseFileSource::FCont contents;
+    BlackRoot::Format::JSON jsonCont;
+
+        // See if we can load the file contents as JSON
+    try {
+        contents = this->FileSource->ReadFile(prop.Path, IO::FileMode::OpenInstr{}.Default().Share(IO::FileMode::Share::Read));
+        jsonCont = BlackRoot::Format::JSON::parse(contents);
+        
+            // As hub files can have nested properties, we simply process the main file as a group
+        this->ProcessHubGroup(id, prop.InputProcessProp, jsonCont);
+    }
+    catch (BlackRoot::Debug::Exception * e) {
+        this->HandleHubFileError(id, e);
+        return;
+    }
+    catch (...) {
+        this->HandleHubFileError(id, nullptr);
+        return;
+    }
+    
+    cout{} << "Done." << std::endl;
+}
+
+void FileChangeMonitor::ProcessHubGroup(InternalID id, const Monitor::ProcessProperties prop, Monitor::JSON group)
+{
+    Monitor::ProcessProperties subProp = prop;
+
+        // Adapt our variables with potential changes based on the hub
+    auto & vars = group.find("vars");
+    if (vars != group.end()) {
+        DbAssertMsgFatal(vars.value().is_array(), "Var list must be an array");
+        subProp.AdaptVariables(vars.value());
+    }
+
+        // Find or spawn hubs listed by this hub group
+    auto & hubs = group.find("hubs");
+    if (hubs != group.end()) {
+        DbAssertMsgFatal(hubs.value().is_array(), "Hub list must be an array");
+
+        for (auto & elem : hubs.value()) {
+                // First we update our variables; the path may depend on them
+            Monitor::ProcessProperties uniqueProp = subProp;
+
+            auto & list = elem.find("vars");
+            if (list != elem.end()) {
+                DbAssertMsgFatal(list.value().is_array(), "Var list must be array");
+                uniqueProp.AdaptVariables(list.value());
+            }
+
+                // Find and process path
+            auto & path = elem.find("path");
+            DbAssertMsgFatal(path.value().is_string(), "Hub Path must be a string");
+            std::string hubPath = uniqueProp.StringVariables["cur-dir"];
+            hubPath += BlackRoot::System::DirSeperator;
+            hubPath += path.value().get<std::string>();
+            hubPath = uniqueProp.ProcessString(hubPath);
+        
+                // Directly set the directory variable to the child's input path
+            uniqueProp.StringVariables["cur-dir"] = fs::canonical(Monitor::Path(hubPath).parent_path()).string();
+
+                // Paths may contain wildcards. A wildcard-containing path spaws its
+                // own objects (TODO) to monitor changes to folder structures which
+                // may change the processing, variables, etc
+            if (this->PathContainsWildcards(hubPath)) {
+                    // TODO
+                DbAssertMsgFatal(0, "Wildcards are not yet supported.");
+                continue;
+            }
+            
+                // Create a reference for finding an orphaned hub; or creating a new one
+            HubProp hub;
+            hub.SetDefault();
+            hub.HubDependency    = id;
+            hub.Path             = hubPath;
+            hub.InputProcessProp = uniqueProp;
+
+            this->FindOrAddHub(hub);
+        }
+    }
+}
+
+void FileChangeMonitor::CleanupOrphanedHubs()
+{
+    // TODO
 }
 
     //  Debug
@@ -243,20 +350,25 @@ FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddMonitoredPath(Monitor:
     return id;
 }
 
-FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddHub(HubProp hub, Monitor::TimePoint * outPrevTimePoint)
+FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddHub(HubProp hub)
 {
     for (auto it : this->HubProperties) {
         if (!it.second.EqualsAbstractly(hub))
             continue;
         
-        if (outPrevTimePoint) {
-            *outPrevTimePoint = it.second.LastUpdate;
+        if (hub.HubDependency != Monitor::InternalIDNone) {
+            it.second.HubDependency = hub.HubDependency;
+            
+                // If we were orphaned, check if we are on the orphaned dirty list and
+                // if so, put us on the proper dirty hub list
+            auto found = std::find(this->OrphanedDirtyHubs.begin(), this->OrphanedDirtyHubs.end(), it.first);
+            if (found != this->OrphanedDirtyHubs.end()) {
+                this->OrphanedDirtyHubs.erase(found);
+                this->DirtyHubs.push_back(it.first);
+            }
         }
+
         return it.first;
-    }
-    
-    if (outPrevTimePoint) {
-        *outPrevTimePoint = hub.LastUpdate;
     }
     
     hub.PathDependencies.resize(0);
@@ -265,7 +377,7 @@ FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddHub(HubProp hub, Monit
     auto id = this->GetNewID();
     this->HubProperties[id] = hub;
 
-    this->DirtyHubs.push_back(id);
+    this->FutureDirtyHubs.push_back(id);
 
     return id;
 }
@@ -274,9 +386,20 @@ void FileChangeMonitor::MakeUsersOfPathDirty(InternalID id)
 {
     for (auto it : this->HubProperties) {
         auto & dep = it.second.PathDependencies;
-        if (std::find(dep.begin(), dep.end(), id) != dep.end())
+        if (std::find(dep.begin(), dep.end(), id) == dep.end())
             continue;
+
         this->DirtyHubs.push_back(it.first);
+    }
+}
+
+void FileChangeMonitor::MakeDependantsOnHubOrphan(InternalID id)
+{
+    for (auto it : this->HubProperties) {
+        if (id != it.second.HubDependency)
+            continue;
+
+        it.second.HubDependency = Monitor::InternalIDNone;
     }
 }
 
@@ -326,6 +449,26 @@ std::string FileChangeMonitor::SimpleFormatDuration(long long t)
     return ss.str();
 }
 
+bool FileChangeMonitor::PathContainsWildcards(const std::string path)
+{
+        // All wildcarts use a *, so just return whether that is found
+    return path.find("*") != std::string::npos;
+}
+
+std::string FileChangeMonitor::SimpleFormatHub(HubProp prop)
+{
+    std::stringstream ss;
+
+    ss << "Path: " << prop.Path;
+
+    bool anyVariables = false;
+    for (auto & elem : prop.InputProcessProp.StringVariables) {
+        ss << std::endl << " " << elem.first << " : " << elem.second;
+    }
+
+    return ss.str();
+}
+
 void FileChangeMonitor::HandleMonitoredPathMissing(InternalID id)
 {
     using cout = BlackRoot::Util::Cout;
@@ -367,6 +510,38 @@ void FileChangeMonitor::HandleMonitoredPathError(InternalID id, BlackRoot::Debug
     prop.Timeout = currentTime + std::chrono::seconds(4);
 
     this->SuspectPaths.push_back(id);
+
+    delete e;
+}
+
+void FileChangeMonitor::HandleHubFileError(InternalID id, BlackRoot::Debug::Exception *e)
+{
+    using cout = BlackRoot::Util::Cout;
+
+    auto it = this->HubProperties.find(id);
+    if (it == this->HubProperties.end())
+        return;
+    auto & prop = it->second;
+    
+    if (e) {
+        cout{} << "Hub error: " << prop.Path << std::endl << " " << e->GetPrettyDescription() << std::endl;
+    }
+    else {
+        cout{} << "Unknown hub error: " << prop.Path << std::endl;
+    }
+    
+        // Set the timeout to a few seconds from now to prevent a file
+        // being constantly updated
+    Monitor::TimePoint currentTime = std::chrono::system_clock::now();
+    prop.Timeout = currentTime + std::chrono::seconds(4);
+
+        // As a precaution make all paths used by this hub suspicious
+    for (auto & pid : prop.PathDependencies) {
+        this->SuspectPaths.push_back(pid);
+    }
+
+        // Push the hub back on the dirty hub stack
+    this->DirtyHubs.push_back(id);
 
     delete e;
 }
@@ -422,9 +597,72 @@ void FileChangeMonitor::AddBaseHubFile(const BlackRoot::IO::FilePath path)
 
     HubProp hub;
     hub.SetDefault();
+    hub.HubDependency = this->OriginalHubDependancy;
     hub.Path = path;
 
+        // We always set a variable "cur-dir" to be the parent directory of
+        // the file. Hubs themselves then use this variable as a relative path.
+    hub.InputProcessProp.StringVariables["cur-dir"] = hub.Path.parent_path().string();
+
     this->FindOrAddHub(hub);
+}
+
+void FileChangeMonitor::SetReferenceDirectory(const BlackRoot::IO::FilePath path)
+{
+    this->InfoReferenceDirectory = path;
+}
+
+    //  Process
+    // --------------------
+
+void Monitor::ProcessProperties::SetDefault()
+{
+    this->StringVariables.clear();
+}
+
+void Monitor::ProcessProperties::AdaptVariables(const JSON json)
+{
+    DbAssert(json.is_array());
+
+    for (auto & elem : json) {
+        for (auto & kv : elem.items()) {
+            this->StringVariables[this->ProcessString(kv.key())] = this->ProcessString(kv.value());
+        }
+    }
+}
+
+std::string Monitor::ProcessProperties::ProcessString(std::string str)
+{
+    size_t start;
+
+        // Define a max itteration just in case something manages to
+        // get a circular replacement going
+    int maxItt = 1 << 4;
+
+        // We look by last so that nested processing can happen
+        // (which is a terrible idea, and it shouldn't happen, but
+        // it no doubt comes in handy sometime, one time, one day)
+    while (std::string::npos != (start = str.find_last_of("{"))) {
+        size_t end = str.find_first_of("}", start+1);
+        DbAssertMsgFatal(end != std::string::npos, "Malformed string");
+
+        auto key = str.substr(start+1, end-start-1);
+        auto & it = this->StringVariables.find(key);
+        DbAssertMsgFatal(it != this->StringVariables.end(), (std::stringstream{} << "Unknown key" << key).str());
+
+        str.replace(str.begin() + start, str.begin() + end + 1, it->second);
+
+        DbAssertMsgFatal(--maxItt >= 0, "Maximum of iterations exceeded.");
+    }
+
+    return str;
+}
+
+bool Monitor::ProcessProperties::Equals(const ProcessProperties rh)
+{
+    if (this->StringVariables != rh.StringVariables)
+        return false;
+    return true;
 }
 
     //  Items
@@ -443,34 +681,21 @@ void Monitor::HubProperties::SetDefault()
     this->PathDependencies.resize(0);
 
     this->Path          = "";
-    this->HubDependancy = Monitor::InternalIDNone;
+    this->HubDependency = Monitor::InternalIDNone;
 
-    this->LastUpdate = std::chrono::time_point<std::chrono::system_clock>{};
     this->Timeout    = std::chrono::system_clock::now();
 
-    this->ProcessProp.SetDefault();
+    this->InputProcessProp.SetDefault();
 }
 
 bool Monitor::HubProperties::EqualsAbstractly(const HubProperties rh)
 {
     if (this->Path != rh.Path)
         return false;
-    if (rh.HubDependancy != Monitor::InternalIDNone &&
-        this->HubDependancy != rh.HubDependancy)
+    if (rh.HubDependency != Monitor::InternalIDNone &&
+        this->HubDependency != rh.HubDependency)
         return false;
-    if (!this->ProcessProp.Equals(rh.ProcessProp))
-        return false;
-    return true;
-}
-
-void Monitor::ProcessProperties::SetDefault()
-{
-    this->StringVariables.clear();
-}
-
-bool Monitor::ProcessProperties::Equals(const ProcessProperties rh)
-{
-    if (this->StringVariables != rh.StringVariables)
+    if (!this->InputProcessProp.Equals(rh.InputProcessProp))
         return false;
     return true;
 }
