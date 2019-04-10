@@ -37,6 +37,7 @@ namespace Pipeline {
 
             void         AdaptVariables(const JSON);
             std::string  ProcessString(std::string);
+            void         ProcessJSONRecursively(JSON *);
         };
 
         struct MonitoredPath {
@@ -61,9 +62,17 @@ namespace Pipeline {
 
         struct PipeProperties {
             InternalIDList      PathDependencies;
-
+            
+            InternalID          HubDependency;
             std::string         Tool;
             Path                BasePathIn, BasePathOut;
+            
+            TimePoint           Timeout;
+
+            JSON                Settings;
+
+            void    SetDefault();
+            bool    EqualsAbstractly(const PipeProperties);
         };
 
     }
@@ -73,6 +82,8 @@ namespace Pipeline {
         using InternalID      = Monitor::InternalID;
         using MonPath         = Monitor::MonitoredPath;
         using HubProp         = Monitor::HubProperties;
+        using PipeProp        = Monitor::PipeProperties;
+        using Count           = InternalID;
 
         struct State {
             using Type = uint8_t;
@@ -92,9 +103,12 @@ namespace Pipeline {
 
         std::map<InternalID, MonPath>         MonitoredPaths;
         std::map<InternalID, HubProp>         HubProperties;
+        std::map<InternalID, PipeProp>        PipeProperties;
         
-        std::vector<InternalID>               SuspectPaths;
+        std::vector<InternalID>               SuspectPaths, FutureSuspectPaths;
         std::vector<InternalID>               DirtyHubs, FutureDirtyHubs, OrphanedDirtyHubs;
+        std::vector<InternalID>               DirtyPipes, FutureDirtyPipes, OrphanedDirtyPipes;
+        std::vector<InternalID>               OutboxPipes, PendingPipes, InboxPipes;
 
         std::mutex                            MutexAccessFiles;
 
@@ -107,18 +121,27 @@ namespace Pipeline {
         void    UpdateSuspectPath(InternalID);
         void    UpdateDirtyHubs();
         void    UpdateDirtyHub(InternalID);
+        void    UpdateDirtyPipes();
+        void    UpdateDirtyPipe(InternalID);
+        void    UpdatePipeOutbox();
+        void    UpdatePipeInbox();
+
         void    CleanupOrphanedHubs();
+        void    CleanupOrphanedPipes();
 
         void    ProcessHubGroup(InternalID, const Monitor::ProcessProperties prop, Monitor::JSON group);
 
         void    HandleThreadException(BlackRoot::Debug::Exception *);
 
         bool    ShouldInterrupt();
+        Count   GetActiveDirtyHubCount();
+        Count   GetActiveDirtyPipeCount();
 
         InternalID    GetNewID();
         
         InternalID    FindOrAddMonitoredPath(Monitor::Path, Monitor::TimePoint * outPrevUpdate = nullptr);
         InternalID    FindOrAddHub(HubProp);
+        InternalID    FindOrAddPipe(PipeProp);
 
         void     MakeUsersOfPathDirty(InternalID);
         void     MakeDependantsOnHubOrphan(InternalID);
@@ -128,6 +151,8 @@ namespace Pipeline {
         void     HandleHubFileError(InternalID, BlackRoot::Debug::Exception*);
 
         std::string   SimpleFormatHub(HubProp);
+        std::string   SimpleFormatPipe(PipeProp);
+        Monitor::Path SimpleFormatPath(Monitor::Path);
 
     public:
         FileChangeMonitor();

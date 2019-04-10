@@ -6,8 +6,8 @@
   * - Currently this uses a single mutex to reserve quite a lot; if this sees more
   *   action, that will becom a bottleneck.
   * - Property use move semantics
-  * - Detect circular dependancies
-  * - Timeout for error files could increase upon repeated errors
+  * - Detect circular dependancies (hub files can link in themselves!)
+  * - Timeout for error files could increase upon repeated errors (?)
   */
 
 #include <time.h>
@@ -56,13 +56,18 @@ void FileChangeMonitor::UpdateCycle()
         std::unique_lock<std::mutex> lock(this->MutexAccessFiles);
         this->UpdateSuspectPaths();
         this->UpdateDirtyHubs();
+        this->UpdateDirtyPipes();
 
-        if (this->DirtyHubs.size() == 0 &&
-            this->FutureDirtyHubs.size() == 0) {
-            this->CleanupOrphanedHubs();
+        bool anyActiveDirty  = this->GetActiveDirtyHubCount() > 0 ||
+                               this->GetActiveDirtyPipeCount() > 0;
+        bool anyActivity = anyActiveDirty;
+
+        if (!anyActiveDirty) {
+            this->UpdatePipeOutbox();
+            this->UpdatePipeInbox();
         }
 
-        if (this->FutureDirtyHubs.size() == 0) {
+        if (!anyActivity) {
             lock.unlock();
             std::this_thread::sleep_for(std::chrono::milliseconds(250));
         }
@@ -71,6 +76,9 @@ void FileChangeMonitor::UpdateCycle()
 
 void FileChangeMonitor::UpdateSuspectPaths()
 {
+    this->SuspectPaths.insert(this->SuspectPaths.end(), this->FutureSuspectPaths.begin(), this->FutureSuspectPaths.end());
+    this->FutureSuspectPaths.resize(0);
+
     while (this->SuspectPaths.size() > 0) {
         if (this->ShouldInterrupt())
             break;
@@ -92,8 +100,6 @@ void FileChangeMonitor::UpdateDirtyHubs()
 {
     this->DirtyHubs.insert(this->DirtyHubs.end(), this->FutureDirtyHubs.begin(), this->FutureDirtyHubs.end());
     this->FutureDirtyHubs.resize(0);
-    this->DirtyHubs.insert(this->DirtyHubs.end(), this->OrphanedDirtyHubs.begin(), this->OrphanedDirtyHubs.end());
-    this->OrphanedDirtyHubs.resize(0);
 
     while (this->DirtyHubs.size() > 0) {
         if (this->ShouldInterrupt())
@@ -104,6 +110,23 @@ void FileChangeMonitor::UpdateDirtyHubs()
         auto id = *this->DirtyHubs.begin();
         this->DirtyHubs.erase(std::remove(this->DirtyHubs.begin(), this->DirtyHubs.end(), id), this->DirtyHubs.end());
         this->UpdateDirtyHub(id);
+    }
+}
+
+void FileChangeMonitor::UpdateDirtyPipes()
+{
+    this->DirtyPipes.insert(this->DirtyPipes.end(), this->FutureDirtyPipes.begin(), this->FutureDirtyPipes.end());
+    this->FutureDirtyPipes.resize(0);
+
+    while (this->DirtyPipes.size() > 0) {
+        if (this->ShouldInterrupt())
+            break;
+
+            // Select a single pipe from our suspect list and try to send it
+            // If anything fails the update function will put it in the list again
+        auto id = *this->DirtyPipes.begin();
+        this->DirtyPipes.erase(std::remove(this->DirtyPipes.begin(), this->DirtyPipes.end(), id), this->DirtyPipes.end());
+        this->UpdateDirtyPipe(id);
     }
 }
 
@@ -127,7 +150,7 @@ void FileChangeMonitor::UpdateSuspectPath(InternalID id)
         // A timeout prevents a file from updating;
         // if we are timed out just put us on the dirty list
     if (prop.Timeout > currentTime) {
-        this->SuspectPaths.push_back(id);
+        this->FutureSuspectPaths.push_back(id);
         return;
     }
 
@@ -169,7 +192,7 @@ void FileChangeMonitor::UpdateSuspectPath(InternalID id)
     auto timePassed = std::time(nullptr) - rawtime;
 
     auto formatted = this->SimpleFormatDuration(timePassed);
-    cout{} << "Changed: " << prop.Path << " (" << formatted << ")" << std::endl;
+    cout{} << "Changed: " << this->SimpleFormatPath(prop.Path) << " (" << formatted << ")" << std::endl;
 
         // Update path meta
     prop.LastUpdate = fileWriteTime;
@@ -206,17 +229,10 @@ void FileChangeMonitor::UpdateDirtyHub(InternalID id)
         return;
     }
 
-        // A timeout prevents a file from updating;
-        // if we are timed out just put us on the dirty list
-    if (prop.Timeout > currentTime) {
-        this->FutureDirtyHubs.push_back(id);
-        return;
-    }
-
         // Make dependants orphan before we even complete the hub process
     this->MakeDependantsOnHubOrphan(id);
     
-    cout{} << "Hub: " << this->SimpleFormatHub(prop) << std::endl;
+    cout{} << std::endl << "Hub:" << this->SimpleFormatHub(prop) << std::endl;
 
     BlackRoot::IO::BaseFileSource::FCont contents;
     BlackRoot::Format::JSON jsonCont;
@@ -250,6 +266,17 @@ void FileChangeMonitor::ProcessHubGroup(InternalID id, const Monitor::ProcessPro
     if (vars != group.end()) {
         DbAssertMsgFatal(vars.value().is_array(), "Var list must be an array");
         subProp.AdaptVariables(vars.value());
+    }
+
+        // Find or spawn hubs listed by this hub group
+    auto & subGroups = group.find("groups");
+    if (subGroups != group.end()) {
+        DbAssertMsgFatal(subGroups.value().is_array(), "Subgroup list must be an array");
+        
+            // Simply send all subgroups to this function, recursively
+        for (auto & elem : subGroups.value()) {
+            this->ProcessHubGroup(id, subProp, elem);
+        }
     }
 
         // Find or spawn hubs listed by this hub group
@@ -297,9 +324,140 @@ void FileChangeMonitor::ProcessHubGroup(InternalID id, const Monitor::ProcessPro
             this->FindOrAddHub(hub);
         }
     }
+
+        // Find or spawn pipes listed by this hub group
+    auto & pipes = group.find("pipes");
+    if (pipes != group.end()) {
+        DbAssertMsgFatal(pipes.value().is_array(), "Pipe list must be an array");
+        
+        for (auto & elem : pipes.value()) {
+                // First we update our variables
+            Monitor::ProcessProperties uniqueProp = subProp;
+            
+            std::string tool  = elem["tool"].get<std::string>();
+            DbAssertMsgFatal(tool.length() > 0, "Pipe must have 'tool' value");
+
+            auto & list = elem.find("vars");
+            if (list != elem.end()) {
+                DbAssertMsgFatal(list.value().is_array(), "Var list must be array");
+                uniqueProp.AdaptVariables(list.value());
+            }
+
+                // Blanket replace this entire pipe
+            uniqueProp.ProcessJSONRecursively(&elem);
+
+                // Obtain settings
+            auto & settings = elem["settings"];
+
+                // Paths are all { "in" : "pairs" }, we create unique items
+                // for all of them
+            auto & pathList = elem.find("paths");
+            if (pathList != elem.end()) {
+                DbAssertMsgFatal(pathList.value().is_array(), "Pipe path list must be array");
+                
+                for (auto & item : pathList.value()) {
+                    std::string pathIn  = item["in"];
+                    std::string pathOut = item["out"];
+
+                    DbAssertMsgFatal(pathIn.length() > 0, "Pipe path must have 'in' value");
+                    DbAssertMsgFatal(pathOut.length() > 0, "Pipe path must have 'out' value");
+
+                        // Paths may contain wildcards. A wildcard-containing path spaws its
+                        // own objects (TODO) to monitor changes to folder structures which
+                        // may change the processing, variables, etc
+                    if (this->PathContainsWildcards(pathIn)) {
+                            // TODO
+                        DbAssertMsgFatal(0, "Wildcards are not yet supported.");
+                        continue;
+                    }
+
+                        // Create a reference for finding an orphaned pipe; or creating a new one
+                    PipeProp pipe;
+                    pipe.SetDefault();
+                    pipe.HubDependency = id;
+                    pipe.Tool          = tool;
+                    pipe.BasePathIn    = fs::canonical(Monitor::Path(pathIn));
+                    pipe.BasePathOut   = fs::canonical(Monitor::Path(pathOut));
+
+                    this->FindOrAddPipe(pipe);
+                }
+            }
+        }
+    }
 }
 
 void FileChangeMonitor::CleanupOrphanedHubs()
+{
+    // TODO
+}
+
+    //  Update pipes
+    // --------------------
+
+void FileChangeMonitor::UpdateDirtyPipe(InternalID id)
+{
+    namespace IO = BlackRoot::IO;
+    using cout = BlackRoot::Util::Cout;
+
+        // Use the current time as a reference for file changes
+    Monitor::TimePoint currentTime = std::chrono::system_clock::now();
+
+        // Find the hub properties
+    auto itProp = this->PipeProperties.find(id);
+    if (itProp == this->PipeProperties.end())
+        return;
+    auto & prop = itProp->second;
+
+        // If we are an orphan we shouldn't update, so add us to
+        // a special list to keep track of us
+    if (prop.HubDependency == Monitor::InternalIDNone) {
+        this->OrphanedDirtyPipes.push_back(id);
+        return;
+    }
+
+        // A timeout prevents a file from updating;
+        // if we are timed out just put us on the dirty list
+    if (prop.Timeout > currentTime) {
+        this->FutureDirtyPipes.push_back(id);
+        return;
+    }
+
+        // Make dependants orphan before we even complete the hub process
+    this->MakeDependantsOnHubOrphan(id);
+    
+    cout{} << std::endl << "Pipe: " << this->SimpleFormatPipe(prop) << std::endl;
+
+        // We remove all path dependencies; we 'send off' this pipe and
+        // we do not care about it changing while it is already pending
+        // (with the exception of it being removed, of course)
+    prop.PathDependencies.resize(0);
+
+        // Put it in the outbox
+    this->OutboxPipes.push_back(id);
+}
+
+void FileChangeMonitor::CleanupOrphanedPipes()
+{
+    // TODO
+}
+
+    //  Update outbox / inbox
+    // --------------------
+
+void FileChangeMonitor::UpdatePipeOutbox()
+{
+    using cout = BlackRoot::Util::Cout;
+
+    if (this->OutboxPipes.size() == 0)
+        return;
+    
+    cout{} << std::endl  << "Sending off " << this->OutboxPipes.size() << " pipes." << std::endl;
+
+    // TODO: no code for this, just, uh, just, uh, throw the whole box away
+    this->OutboxPipes.resize(0);
+}
+
+void FileChangeMonitor::UpdatePipeInbox()
 {
     // TODO
 }
@@ -382,29 +540,87 @@ FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddHub(HubProp hub)
     return id;
 }
 
+FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddPipe(PipeProp pipe)
+{
+    for (auto it : this->PipeProperties) {
+        if (!it.second.EqualsAbstractly(pipe))
+            continue;
+        
+        if (pipe.HubDependency != Monitor::InternalIDNone) {
+            it.second.HubDependency = pipe.HubDependency;
+
+                // If we were orphaned, check if we are on the orphaned dirty list and
+                // if so, put us on the proper dirty pipe list
+            auto found = std::find(this->OrphanedDirtyPipes.begin(), this->OrphanedDirtyPipes.end(), it.first);
+            if (found != this->OrphanedDirtyPipes.end()) {
+                this->OrphanedDirtyPipes.erase(found);
+                this->DirtyPipes.push_back(it.first);
+            }
+        }
+
+        return it.first;
+    }
+    
+        // Note, we do not add any path dependencies. As a new pipe we by default are dirty,
+        // and by default we'll be sent off; there is no use to tracking anything
+    pipe.PathDependencies.resize(0);
+
+    auto id = this->GetNewID();
+    this->PipeProperties[id] = pipe;
+
+    this->FutureDirtyPipes.push_back(id);
+
+    return id;
+}
+
 void FileChangeMonitor::MakeUsersOfPathDirty(InternalID id)
 {
+        // Check hubs
     for (auto it : this->HubProperties) {
         auto & dep = it.second.PathDependencies;
         if (std::find(dep.begin(), dep.end(), id) == dep.end())
             continue;
+        this->FutureDirtyHubs.push_back(it.first);
+    }
 
-        this->DirtyHubs.push_back(it.first);
+        // Check pipes
+    for (auto it : this->PipeProperties) {
+        auto & dep = it.second.PathDependencies;
+        if (std::find(dep.begin(), dep.end(), id) == dep.end())
+            continue;
+        this->FutureDirtyPipes.push_back(it.first);
     }
 }
 
 void FileChangeMonitor::MakeDependantsOnHubOrphan(InternalID id)
 {
-    for (auto it : this->HubProperties) {
+        // Check hubs
+    for (auto & it : this->HubProperties) {
         if (id != it.second.HubDependency)
             continue;
-
+        it.second.HubDependency = Monitor::InternalIDNone;
+    }
+    
+        // Check pipes
+    for (auto & it : this->PipeProperties) {
+        if (id != it.second.HubDependency)
+            continue;
         it.second.HubDependency = Monitor::InternalIDNone;
     }
 }
 
     //  Util
     // --------------------
+
+FileChangeMonitor::Count FileChangeMonitor::GetActiveDirtyHubCount()
+{
+    return this->DirtyHubs.size() + this->FutureDirtyHubs.size();
+}
+
+FileChangeMonitor::Count FileChangeMonitor::GetActiveDirtyPipeCount()
+{
+    return this->DirtyPipes.size() + this->FutureDirtyPipes.size();
+}
 
 std::string FileChangeMonitor::SimpleFormatDuration(long long t)
 {
@@ -449,6 +665,24 @@ std::string FileChangeMonitor::SimpleFormatDuration(long long t)
     return ss.str();
 }
 
+Monitor::Path FileChangeMonitor::SimpleFormatPath(Monitor::Path path)
+{
+    // TODO: C++17 isn't that hot yet; we don't have relative path
+
+    std::string refPath = this->InfoReferenceDirectory.string();
+    std::string curPath = path.string();
+
+    size_t diffIndex = 0;
+    while (refPath[diffIndex] == curPath[diffIndex]) {
+        if (++diffIndex == refPath.length())
+            break;
+    }
+
+    curPath.erase(0, diffIndex+1);
+
+    return curPath;
+}
+
 bool FileChangeMonitor::PathContainsWildcards(const std::string path)
 {
         // All wildcarts use a *, so just return whether that is found
@@ -459,12 +693,27 @@ std::string FileChangeMonitor::SimpleFormatHub(HubProp prop)
 {
     std::stringstream ss;
 
-    ss << "Path: " << prop.Path;
+    ss << this->SimpleFormatPath(prop.Path);
 
-    bool anyVariables = false;
     for (auto & elem : prop.InputProcessProp.StringVariables) {
-        ss << std::endl << " " << elem.first << " : " << elem.second;
+        if (elem.first.find("-dir") != elem.first.npos) {
+            ss << std::endl << " " << elem.first << " : " << this->SimpleFormatPath(elem.second);
+        }
+        else {
+            ss << std::endl << " " << elem.first << " : " << elem.second;
+        }
     }
+
+    return ss.str();
+}
+
+std::string FileChangeMonitor::SimpleFormatPipe(PipeProp prop)
+{
+    std::stringstream ss;
+
+    ss << this->SimpleFormatPath(prop.BasePathIn) << std::endl;
+    ss << " Out: " << this->SimpleFormatPath(prop.BasePathOut) << std::endl;
+    ss << " Settings: " << prop.Settings.dump(2);
 
     return ss.str();
 }
@@ -478,7 +727,7 @@ void FileChangeMonitor::HandleMonitoredPathMissing(InternalID id)
         return;
     auto & prop = it->second;
     
-    cout{} << "File missing: " << prop.Path << std::endl;
+    cout{} << "File missing: " << this->SimpleFormatPath(prop.Path) << std::endl;
     
         // The file might 'come back' by another file being renamed; this
         // might change the contents of the file without changing the time
@@ -490,7 +739,7 @@ void FileChangeMonitor::HandleMonitoredPathMissing(InternalID id)
     Monitor::TimePoint currentTime = std::chrono::system_clock::now();
     prop.Timeout = currentTime + std::chrono::seconds(4);
 
-    this->SuspectPaths.push_back(id);
+    this->FutureSuspectPaths.push_back(id);
 }
 
 void FileChangeMonitor::HandleMonitoredPathError(InternalID id, BlackRoot::Debug::Exception *e)
@@ -509,7 +758,7 @@ void FileChangeMonitor::HandleMonitoredPathError(InternalID id, BlackRoot::Debug
     Monitor::TimePoint currentTime = std::chrono::system_clock::now();
     prop.Timeout = currentTime + std::chrono::seconds(4);
 
-    this->SuspectPaths.push_back(id);
+    this->FutureSuspectPaths.push_back(id);
 
     delete e;
 }
@@ -524,10 +773,10 @@ void FileChangeMonitor::HandleHubFileError(InternalID id, BlackRoot::Debug::Exce
     auto & prop = it->second;
     
     if (e) {
-        cout{} << "Hub error: " << prop.Path << std::endl << " " << e->GetPrettyDescription() << std::endl;
+        cout{} << "Hub error: " << this->SimpleFormatPath(prop.Path.string()) << std::endl << " " << e->GetPrettyDescription() << std::endl;
     }
     else {
-        cout{} << "Unknown hub error: " << prop.Path << std::endl;
+        cout{} << "Unknown hub error: " << this->SimpleFormatPath(prop.Path.string()) << std::endl;
     }
     
         // Set the timeout to a few seconds from now to prevent a file
@@ -609,7 +858,7 @@ void FileChangeMonitor::AddBaseHubFile(const BlackRoot::IO::FilePath path)
 
 void FileChangeMonitor::SetReferenceDirectory(const BlackRoot::IO::FilePath path)
 {
-    this->InfoReferenceDirectory = path;
+    this->InfoReferenceDirectory = fs::canonical(path);
 }
 
     //  Process
@@ -648,7 +897,7 @@ std::string Monitor::ProcessProperties::ProcessString(std::string str)
 
         auto key = str.substr(start+1, end-start-1);
         auto & it = this->StringVariables.find(key);
-        DbAssertMsgFatal(it != this->StringVariables.end(), (std::stringstream{} << "Unknown key" << key).str());
+        DbAssertMsgFatal(it != this->StringVariables.end(), (std::stringstream{} << "Unknown key '" << key << "'").str());
 
         str.replace(str.begin() + start, str.begin() + end + 1, it->second);
 
@@ -656,6 +905,19 @@ std::string Monitor::ProcessProperties::ProcessString(std::string str)
     }
 
     return str;
+}
+
+void Monitor::ProcessProperties::ProcessJSONRecursively(JSON * json)
+{
+    for (auto & elem : (*json)) {
+        if (elem.is_string()) {
+            elem = this->ProcessString(elem.get<std::string>());
+            continue;
+        }
+        if (elem.is_array() || elem.is_object()) {
+            this->ProcessJSONRecursively(&elem);
+        }
+    }
 }
 
 bool Monitor::ProcessProperties::Equals(const ProcessProperties rh)
@@ -692,10 +954,39 @@ bool Monitor::HubProperties::EqualsAbstractly(const HubProperties rh)
 {
     if (this->Path != rh.Path)
         return false;
-    if (rh.HubDependency != Monitor::InternalIDNone &&
+    if (this->HubDependency != Monitor::InternalIDNone &&
         this->HubDependency != rh.HubDependency)
         return false;
     if (!this->InputProcessProp.Equals(rh.InputProcessProp))
+        return false;
+    return true;
+}
+
+void Monitor::PipeProperties::SetDefault()
+{
+    this->PathDependencies.resize(0);
+
+    this->BasePathIn    = "";
+    this->BasePathOut   = "";
+
+    this->HubDependency = Monitor::InternalIDNone;
+    this->Timeout       = std::chrono::system_clock::now();
+
+    this->Settings      = {};
+}
+
+bool Monitor::PipeProperties::EqualsAbstractly(const PipeProperties rh)
+{
+    if (0 != this->Tool.compare(rh.Tool))
+        return false;
+    if (this->BasePathIn != rh.BasePathIn)
+        return false;
+    if (this->BasePathOut != rh.BasePathOut)
+        return false;
+    if (this->HubDependency != Monitor::InternalIDNone &&
+        this->HubDependency != rh.HubDependency)
+        return false;
+    if (!(this->Settings == rh.Settings))
         return false;
     return true;
 }

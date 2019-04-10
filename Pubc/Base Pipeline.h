@@ -38,6 +38,8 @@ namespace Base {
         
         void StartProcessing() override;
         void StopProcessing() override;
+
+        TB_MESSAGES_DECLARE_MEMBER_FUNCTION(setReferenceDirectory);
 	};
 
 }
