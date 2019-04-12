@@ -12,6 +12,7 @@
 
 #include "HephaestusBase/Pubc/Interface Pipeline.h"
 #include "HephaestusBase/Pubc/File Change Monitor.h"
+#include "HephaestusBase/Pubc/Pipe Wrangler.h"
 
 namespace Hephaestus {
 namespace Base {
@@ -19,12 +20,15 @@ namespace Base {
 	class Pipeline : public Hephaestus::Core::IPipeline {
         TB_MESSAGES_DECLARE_RECEIVER(Pipeline, Hephaestus::Core::IPipeline);
 
+        using FileMonitor  = Hephaestus::Pipeline::Monitor::FileChangeMonitor;
+        using PipeWrangler = Hephaestus::Pipeline::Wrangler::PipeWrangler;
     protected:
-        struct __Pipeprops {
 
+        struct __Pipeprops {
             bool        ProcessingActive;
 
-            Hephaestus::Pipeline::FileChangeMonitor     Monitor;
+            FileMonitor     Monitor;
+            PipeWrangler    Wrangler;
 
         } PipeProps;
 

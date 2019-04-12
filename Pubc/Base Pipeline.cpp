@@ -9,6 +9,7 @@
 #include "ToolboxBase/Pubc/Base Environment.h"
 
 #include "HephaestusBase/Pubc/Base Pipeline.h"
+#include "HephaestusBase/Pubc/Pipe Tool Register.h"
 
 using namespace Hephaestus::Base;
 namespace fs = std::experimental::filesystem;
@@ -24,6 +25,11 @@ TB_MESSAGES_END_DEFINE(Pipeline);
 void Pipeline::Initialise(const BlackRoot::Format::JSON param)
 {
     this->PipeProps.Monitor.SetReferenceDirectory(Toolbox::Core::GetEnvironment()->GetRefDir() / "../../");
+    this->PipeProps.Monitor.SetWrangler(&this->PipeProps.Wrangler);
+
+    for (const auto & it : Hephaestus::Pipeline::PipeRegistry::GetPipeList()) {
+        this->PipeProps.Wrangler.RegisterTool(it);
+    }
 }
 
 void Pipeline::Deinitialise(const BlackRoot::Format::JSON param)
@@ -45,12 +51,17 @@ void Pipeline::AddBaseHubFile(BlackRoot::IO::FilePath str)
 
 void Pipeline::StartProcessing()
 {
+    using cout = BlackRoot::Util::Cout;
+    cout{} << "Available pipeline tools: " << std::endl << " " << this->PipeProps.Wrangler.GetAvailableTools() << std::endl;
+
     this->PipeProps.Monitor.Begin();
+    this->PipeProps.Wrangler.Begin();
 }
 
 void Pipeline::StopProcessing()
 {
     this->PipeProps.Monitor.EndAndWait();
+    this->PipeProps.Wrangler.EndAndWait();
 }
 
 void Pipeline::_setReferenceDirectory(Toolbox::Messaging::IAsynchMessage * message)

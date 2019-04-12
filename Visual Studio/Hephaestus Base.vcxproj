@@ -179,6 +179,11 @@
     <ClCompile Include="../Pubc/Entry.cpp" />
     <ClCompile Include="../Pubc/Environment.cpp" />
     <ClCompile Include="..\Pubc\File Change Monitor.cpp" />
+    <ClCompile Include="..\Pubc\Pipe Tool Register.cpp" />
+    <ClCompile Include="..\Pubc\Pipe Tool Smartcopy.cpp" />
+    <ClCompile Include="..\Pubc\Pipe Tool.cpp" />
+    <ClCompile Include="..\Pubc\Pipe Wrangler.cpp" />
+    <ClCompile Include="..\Pubc\Pipeline Meta.cpp" />
     <ClCompile Include="..\Pubc\Version.cpp" />
     <ClCompile Include="Interface Pipeline.cpp" />
   </ItemGroup>
@@ -187,6 +192,10 @@
     <ClInclude Include="../Pubc/Environment.h" />
     <ClInclude Include="../Pubc/Interface Pipeline.h" />
     <ClInclude Include="..\Pubc\File Change Monitor.h" />
+    <ClInclude Include="..\Pubc\Pipe Tool Register.h" />
+    <ClInclude Include="..\Pubc\Pipe Wrangler.h" />
+    <ClInclude Include="..\Pubc\Pipe Tool.h" />
+    <ClInclude Include="..\Pubc\Pipeline Meta.h" />
     <ClInclude Include="..\Pubc\Register.h" />
     <ClInclude Include="..\Pubc\Version.h" />
   </ItemGroup>

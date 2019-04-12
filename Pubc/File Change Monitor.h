@@ -16,66 +16,65 @@
 #include "BlackRoot/Pubc/Files Types.h"
 #include "BlackRoot/Pubc/JSON.h"
 
+#include "HephaestusBase/Pubc/Pipeline Meta.h"
+
 namespace Hephaestus {
 namespace Pipeline {
+namespace Monitor {
 
-    namespace Monitor {
+    using InternalID = uint32;
+    static const InternalID InternalIDNone = std::numeric_limits<InternalID>::max();
 
-        using InternalID = uint32;
-        static const InternalID InternalIDNone = std::numeric_limits<InternalID>::max();
+    using TimePoint       = std::chrono::system_clock::time_point;
+    using JSON            = BlackRoot::Format::JSON;
+    using Path            = BlackRoot::IO::FilePath;
+    using InternalIDList  = std::vector<InternalID>;
 
-        using TimePoint       = std::chrono::system_clock::time_point;
-        using JSON            = BlackRoot::Format::JSON;
-        using Path            = BlackRoot::IO::FilePath;
-        using InternalIDList  = std::vector<InternalID>;
+    struct ProcessProperties {
+        std::unordered_map<std::string, std::string>    StringVariables;
 
-        struct ProcessProperties {
-            std::unordered_map<std::string, std::string>    StringVariables;
+        void    SetDefault();
+        bool    Equals(const ProcessProperties);
 
-            void    SetDefault();
-            bool    Equals(const ProcessProperties);
+        void         AdaptVariables(const JSON);
+        std::string  ProcessString(std::string);
+        void         ProcessJSONRecursively(JSON *);
+    };
 
-            void         AdaptVariables(const JSON);
-            std::string  ProcessString(std::string);
-            void         ProcessJSONRecursively(JSON *);
-        };
+    struct MonitoredPath {
+        Path                Path;
+        TimePoint           LastUpdate, Timeout;
 
-        struct MonitoredPath {
-            Path                Path;
-            TimePoint           LastUpdate, Timeout;
+        void    SetDefault();
+    };
 
-            void    SetDefault();
-        };
+    struct HubProperties {
+        InternalIDList      PathDependencies;
 
-        struct HubProperties {
-            InternalIDList      PathDependencies;
+        InternalID          HubDependency;
+        Path                Path;
+        TimePoint           Timeout;
 
-            InternalID          HubDependency;
-            Path                Path;
-            TimePoint           Timeout;
+        ProcessProperties   InputProcessProp;
 
-            ProcessProperties   InputProcessProp;
+        void    SetDefault();
+        bool    EqualsAbstractly(const HubProperties);
+    };
 
-            void    SetDefault();
-            bool    EqualsAbstractly(const HubProperties);
-        };
-
-        struct PipeProperties {
-            InternalIDList      PathDependencies;
+    struct PipeProperties {
+        InternalIDList      PathDependencies;
             
-            InternalID          HubDependency;
-            std::string         Tool;
-            Path                BasePathIn, BasePathOut;
+        InternalID          HubDependency;
+        std::string         Tool;
+        Path                BasePathIn, BasePathOut;
             
-            TimePoint           Timeout;
+        TimePoint           Timeout;
 
-            JSON                Settings;
+        JSON                Settings;
 
-            void    SetDefault();
-            bool    EqualsAbstractly(const PipeProperties);
-        };
-
-    }
+        void    SetDefault();
+        bool    EqualsAbstractly(const PipeProperties);
+    };
 
     class FileChangeMonitor {
     protected:
@@ -113,6 +112,8 @@ namespace Pipeline {
         std::mutex                            MutexAccessFiles;
 
         InternalID                            OriginalHubDependancy;
+
+        Pipeline::IWrangler                   *Wrangler;
 
         Monitor::Path                         InfoReferenceDirectory;
         
@@ -153,6 +154,8 @@ namespace Pipeline {
         std::string   SimpleFormatHub(HubProp);
         std::string   SimpleFormatPipe(PipeProp);
         Monitor::Path SimpleFormatPath(Monitor::Path);
+        
+        void    AsynchReceiveTaskResult(const WranglerTaskResult&);
 
     public:
         FileChangeMonitor();
@@ -164,9 +167,14 @@ namespace Pipeline {
         void    AddBaseHubFile(const BlackRoot::IO::FilePath);
         void    SetReferenceDirectory(const BlackRoot::IO::FilePath);
 
+        void    SetWrangler(Pipeline::IWrangler*);
+
         void    Begin();
         void    EndAndWait();
+
+        bool    IsStopped();
     };
 
+}
 }
 }

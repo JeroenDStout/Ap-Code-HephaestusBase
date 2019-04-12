@@ -23,6 +23,8 @@
 #include "HephaestusBase/Pubc/File Change Monitor.h"
 
 using namespace Hephaestus::Pipeline;
+using namespace Hephaestus::Pipeline::Monitor;
+
 namespace fs = std::experimental::filesystem;
 
     //  Setup
@@ -257,9 +259,9 @@ void FileChangeMonitor::UpdateDirtyHub(InternalID id)
     cout{} << "Done." << std::endl;
 }
 
-void FileChangeMonitor::ProcessHubGroup(InternalID id, const Monitor::ProcessProperties prop, Monitor::JSON group)
+void FileChangeMonitor::ProcessHubGroup(InternalID id, const ProcessProperties prop, JSON group)
 {
-    Monitor::ProcessProperties subProp = prop;
+    ProcessProperties subProp = prop;
 
         // Adapt our variables with potential changes based on the hub
     auto & vars = group.find("vars");
@@ -441,6 +443,16 @@ void FileChangeMonitor::CleanupOrphanedPipes()
     // TODO
 }
 
+    //  Asynch
+    // --------------------
+
+void FileChangeMonitor::AsynchReceiveTaskResult(const WranglerTaskResult& result)
+{
+    using cout = BlackRoot::Util::Cout;
+
+    cout{} << "Received result." << std::endl;
+}
+
     //  Update outbox / inbox
     // --------------------
 
@@ -453,7 +465,29 @@ void FileChangeMonitor::UpdatePipeOutbox()
     
     cout{} << std::endl  << "Sending off " << this->OutboxPipes.size() << " pipes." << std::endl;
 
-    // TODO: no code for this, just, uh, just, uh, throw the whole box away
+    WranglerTaskList tasks(this->OutboxPipes.size());
+
+    int outputCount = 0;
+    for (auto id : this->OutboxPipes) {
+        auto & itProp = this->PipeProperties.find(id);
+        if (itProp == this->PipeProperties.end())
+            return;
+        auto & prop = itProp->second;
+
+        WranglerTask task;
+        task.Callback = [&](WranglerTaskResult &&r){ this->AsynchReceiveTaskResult(std::move(r)); };
+        task.UniqueID = id;
+        task.ToolName = prop.Tool;
+        task.FileIn   = prop.BasePathIn;
+        task.FileOut  = prop.BasePathOut;
+        task.Settings = prop.Settings;
+
+        tasks[outputCount++] = std::move(task);
+    }
+
+    tasks.resize(outputCount);
+    this->Wrangler->AsynchReceiveTasks(tasks);
+
     this->OutboxPipes.resize(0);
 }
 
@@ -477,11 +511,11 @@ void FileChangeMonitor::HandleThreadException(BlackRoot::Debug::Exception * e)
 FileChangeMonitor::InternalID FileChangeMonitor::GetNewID()
 {
     // {Paranoia Note} This ID could overflow
-    DbAssert(this->NextID < Monitor::InternalIDNone);
+    DbAssert(this->NextID < InternalIDNone);
     return this->NextID++;
 }
 
-FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddMonitoredPath(Monitor::Path path, Monitor::TimePoint * outPrevTimePoint)
+FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddMonitoredPath(Path path, TimePoint * outPrevTimePoint)
 {
     for (auto it : this->MonitoredPaths) {
         if (it.second.Path != path)
@@ -614,12 +648,12 @@ void FileChangeMonitor::MakeDependantsOnHubOrphan(InternalID id)
 
 FileChangeMonitor::Count FileChangeMonitor::GetActiveDirtyHubCount()
 {
-    return this->DirtyHubs.size() + this->FutureDirtyHubs.size();
+    return (Count)(this->DirtyHubs.size() + this->FutureDirtyHubs.size());
 }
 
 FileChangeMonitor::Count FileChangeMonitor::GetActiveDirtyPipeCount()
 {
-    return this->DirtyPipes.size() + this->FutureDirtyPipes.size();
+    return (Count)(this->DirtyPipes.size() + this->FutureDirtyPipes.size());
 }
 
 std::string FileChangeMonitor::SimpleFormatDuration(long long t)
@@ -665,7 +699,7 @@ std::string FileChangeMonitor::SimpleFormatDuration(long long t)
     return ss.str();
 }
 
-Monitor::Path FileChangeMonitor::SimpleFormatPath(Monitor::Path path)
+Path FileChangeMonitor::SimpleFormatPath(Path path)
 {
     // TODO: C++17 isn't that hot yet; we don't have relative path
 
@@ -800,14 +834,18 @@ bool FileChangeMonitor::ShouldInterrupt()
     return this->TargetState != State::Running;
 }
 
+bool FileChangeMonitor::IsStopped()
+{
+    return this->CurrentState == State::Stopped &&
+            this->TargetState == State::Stopped;
+}
+
     //  Control
     // --------------------
 
 void FileChangeMonitor::Begin()
 {
     using cout = BlackRoot::Util::Cout;
-
-    auto * This = this;
 
     DbAssert(this->CurrentState == State::Stopped);
     
@@ -861,15 +899,22 @@ void FileChangeMonitor::SetReferenceDirectory(const BlackRoot::IO::FilePath path
     this->InfoReferenceDirectory = fs::canonical(path);
 }
 
+void FileChangeMonitor::SetWrangler(IWrangler * wrangler)
+{
+    DbAssert(this->IsStopped());
+
+    this->Wrangler = wrangler;
+}
+
     //  Process
     // --------------------
 
-void Monitor::ProcessProperties::SetDefault()
+void ProcessProperties::SetDefault()
 {
     this->StringVariables.clear();
 }
 
-void Monitor::ProcessProperties::AdaptVariables(const JSON json)
+void ProcessProperties::AdaptVariables(const JSON json)
 {
     DbAssert(json.is_array());
 
@@ -880,7 +925,7 @@ void Monitor::ProcessProperties::AdaptVariables(const JSON json)
     }
 }
 
-std::string Monitor::ProcessProperties::ProcessString(std::string str)
+std::string ProcessProperties::ProcessString(std::string str)
 {
     size_t start;
 
@@ -907,7 +952,7 @@ std::string Monitor::ProcessProperties::ProcessString(std::string str)
     return str;
 }
 
-void Monitor::ProcessProperties::ProcessJSONRecursively(JSON * json)
+void ProcessProperties::ProcessJSONRecursively(JSON * json)
 {
     for (auto & elem : (*json)) {
         if (elem.is_string()) {
@@ -920,7 +965,7 @@ void Monitor::ProcessProperties::ProcessJSONRecursively(JSON * json)
     }
 }
 
-bool Monitor::ProcessProperties::Equals(const ProcessProperties rh)
+bool ProcessProperties::Equals(const ProcessProperties rh)
 {
     if (this->StringVariables != rh.StringVariables)
         return false;
@@ -930,7 +975,7 @@ bool Monitor::ProcessProperties::Equals(const ProcessProperties rh)
     //  Items
     // --------------------
 
-void Monitor::MonitoredPath::SetDefault()
+void MonitoredPath::SetDefault()
 {
     this->Path       = "";
 
@@ -938,7 +983,7 @@ void Monitor::MonitoredPath::SetDefault()
     this->Timeout    = std::chrono::system_clock::now();
 }
 
-void Monitor::HubProperties::SetDefault()
+void HubProperties::SetDefault()
 {
     this->PathDependencies.resize(0);
 
@@ -950,7 +995,7 @@ void Monitor::HubProperties::SetDefault()
     this->InputProcessProp.SetDefault();
 }
 
-bool Monitor::HubProperties::EqualsAbstractly(const HubProperties rh)
+bool HubProperties::EqualsAbstractly(const HubProperties rh)
 {
     if (this->Path != rh.Path)
         return false;
@@ -962,7 +1007,7 @@ bool Monitor::HubProperties::EqualsAbstractly(const HubProperties rh)
     return true;
 }
 
-void Monitor::PipeProperties::SetDefault()
+void PipeProperties::SetDefault()
 {
     this->PathDependencies.resize(0);
 
@@ -975,7 +1020,7 @@ void Monitor::PipeProperties::SetDefault()
     this->Settings      = {};
 }
 
-bool Monitor::PipeProperties::EqualsAbstractly(const PipeProperties rh)
+bool PipeProperties::EqualsAbstractly(const PipeProperties rh)
 {
     if (0 != this->Tool.compare(rh.Tool))
         return false;

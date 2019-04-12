@@ -14,6 +14,9 @@
     <Filter Include="Pipeline">
       <UniqueIdentifier>{2a94a0ca-8408-4871-ab2f-b11aff443fd6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Pipe Tools">
+      <UniqueIdentifier>{76b7e0bf-a47a-490a-8954-e485a0d7e553}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="../Pubc/Entry.cpp">
@@ -34,6 +37,21 @@
     <ClCompile Include="Interface Pipeline.cpp">
       <Filter>Environment</Filter>
     </ClCompile>
+    <ClCompile Include="..\Pubc\Pipe Wrangler.cpp">
+      <Filter>Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Pubc\Pipeline Meta.cpp">
+      <Filter>Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Pubc\Pipe Tool.cpp">
+      <Filter>Pipeline</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Pubc\Pipe Tool Smartcopy.cpp">
+      <Filter>Pipe Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Pubc\Pipe Tool Register.cpp">
+      <Filter>Pipeline</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Pubc\Version.h">
@@ -52,6 +70,18 @@
       <Filter>Environment</Filter>
     </ClInclude>
     <ClInclude Include="..\Pubc\File Change Monitor.h">
+      <Filter>Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Pubc\Pipe Wrangler.h">
+      <Filter>Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Pubc\Pipeline Meta.h">
+      <Filter>Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Pubc\Pipe Tool Register.h">
+      <Filter>Pipeline</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Pubc\Pipe Tool.h">
       <Filter>Pipeline</Filter>
     </ClInclude>
   </ItemGroup>
