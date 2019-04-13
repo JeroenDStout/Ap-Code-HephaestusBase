@@ -155,7 +155,7 @@ std::string PipeWrangler::GetAvailableTools()
     std::shared_lock<std::shared_mutex> lk(this->MxTools);
     bool first = true;
     for (auto & it : this->Tools) {
-        if (!first) ss << L", ";
+        if (!first) ss << ", ";
         ss << it.first;
         first = false;
     }
