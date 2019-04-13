@@ -34,9 +34,6 @@
     <ClCompile Include="..\Pubc\File Change Monitor.cpp">
       <Filter>Pipeline</Filter>
     </ClCompile>
-    <ClCompile Include="Interface Pipeline.cpp">
-      <Filter>Environment</Filter>
-    </ClCompile>
     <ClCompile Include="..\Pubc\Pipe Wrangler.cpp">
       <Filter>Pipeline</Filter>
     </ClCompile>
@@ -52,8 +49,11 @@
     <ClCompile Include="..\Pubc\Pipe Tool Register.cpp">
       <Filter>Pipeline</Filter>
     </ClCompile>
-    <ClCompile Include="Pipe Tool Dummy.cpp">
+    <ClCompile Include="..\Pubc\Pipe Tool Dummy.cpp">
       <Filter>Pipe Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Pubc\Interface Pipeline.cpp">
+      <Filter>Environment</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

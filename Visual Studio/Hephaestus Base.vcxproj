@@ -164,14 +164,14 @@
     <ClCompile Include="../Pubc/Entry.cpp" />
     <ClCompile Include="../Pubc/Environment.cpp" />
     <ClCompile Include="..\Pubc\File Change Monitor.cpp" />
+    <ClCompile Include="..\Pubc\Interface Pipeline.cpp" />
+    <ClCompile Include="..\Pubc\Pipe Tool Dummy.cpp" />
     <ClCompile Include="..\Pubc\Pipe Tool Register.cpp" />
     <ClCompile Include="..\Pubc\Pipe Tool Smartcopy.cpp" />
     <ClCompile Include="..\Pubc\Pipe Tool.cpp" />
     <ClCompile Include="..\Pubc\Pipe Wrangler.cpp" />
     <ClCompile Include="..\Pubc\Pipeline Meta.cpp" />
     <ClCompile Include="..\Pubc\Version.cpp" />
-    <ClCompile Include="Interface Pipeline.cpp" />
-    <ClCompile Include="Pipe Tool Dummy.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="../Pubc/Base Pipeline.h" />
