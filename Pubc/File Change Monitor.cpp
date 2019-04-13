@@ -8,6 +8,7 @@
   * - Property use move semantics
   * - Detect circular dependancies (hub files can link in themselves!)
   * - Timeout for error files could increase upon repeated errors (?)
+  * - If a file for a pipe does not exist, do not send it immediately
   */
 
 #include <time.h>
