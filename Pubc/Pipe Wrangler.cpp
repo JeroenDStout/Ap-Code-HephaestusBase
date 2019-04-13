@@ -43,6 +43,10 @@ void PipeWrangler::ThreadedCall()
     lk.unlock();
 
     WranglerTaskResult result;
+    result.Exception = nullptr;
+    result.UniqueID = task.OriginTask->UniqueID;
+    
+    Pipeline::PipeToolInstr instr;
 
     try {
         cout{} << "Pipe: " << task.OriginTask->ToolName << std::endl
@@ -52,27 +56,33 @@ void PipeWrangler::ThreadedCall()
 
         auto tool = this->FindTool(task.OriginTask->ToolName);
 
-        Pipeline::PipeToolInstr instr;
         instr.FileIn    = task.OriginTask->FileIn;
         instr.FileOut   = task.OriginTask->FileOut;
         instr.Settings  = std::move(task.OriginTask->Settings);
 
+        auto startTime = std::chrono::system_clock::now();
         tool->Run(instr);
+        result.ProcessDuration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - startTime);
     }
     catch (BlackRoot::Debug::Exception * e) {
-        result.ErrorString = e->GetPrettyDescription();
-        delete e;
+        result.Exception = e;
     }
     catch (std::exception * e) {
-        result.ErrorString = e->what();
-        delete e;
+        result.Exception = new BlackRoot::Debug::Exception(e->what(), {});
     }
     catch (...) {
-        result.ErrorString = "Unknown error trying to process task";
+        result.Exception = new BlackRoot::Debug::Exception("Unknown error trying to process task", {});
     }
 
-    if (result.ErrorString.size() > 0) {
-        cout{} << std::endl << "Pipe error: " << task.OriginTask->ToolName << std::endl << " " << task.OriginTask->FileIn << std::endl << " " << result.ErrorString << std::endl;
+    if (result.Exception) {
+        cout{} << std::endl << "Pipe error: " << task.OriginTask->ToolName << std::endl << " " << task.OriginTask->FileIn << std::endl << " " << result.Exception->GetPrettyDescription() << std::endl;
+    }
+
+    for (auto & it : instr.ReadFiles) {
+        result.ReadFiles.push_back({ it.Path, it.LastChange });
+    }
+    for (auto & it : instr.WrittenFiles) {
+        result.WrittenFiles.push_back({ it.Path });
     }
 
     task.OriginTask->Callback(result);

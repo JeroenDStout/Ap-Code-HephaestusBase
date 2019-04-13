@@ -94,7 +94,7 @@ namespace Tools {
                 instr.WrittenFiles.push_back({ it.Path });
             }
             else {
-                instr.ReadFiles.push_back({ it.Path, it.OpenTime });
+                instr.ReadFiles.push_back({ it.Path, it.PreviousLastWriteTime });
             }
         }
     }

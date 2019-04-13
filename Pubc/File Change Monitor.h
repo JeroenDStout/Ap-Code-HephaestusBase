@@ -103,7 +103,7 @@ namespace Monitor {
         std::map<InternalID, MonPath>         MonitoredPaths;
         std::map<InternalID, HubProp>         HubProperties;
         std::map<InternalID, PipeProp>        PipeProperties;
-        
+
         std::vector<InternalID>               SuspectPaths, FutureSuspectPaths;
         std::vector<InternalID>               DirtyHubs, FutureDirtyHubs, OrphanedDirtyHubs;
         std::vector<InternalID>               DirtyPipes, FutureDirtyPipes, OrphanedDirtyPipes;
@@ -112,6 +112,10 @@ namespace Monitor {
         std::mutex                            MutexAccessFiles;
 
         InternalID                            OriginalHubDependancy;
+        
+        std::atomic<uint32>                   WranglerResultCount;
+        std::mutex                            MxWranglerResults;
+        std::vector<WranglerTaskResult>       WranglerResults;
 
         Pipeline::IWrangler                   *Wrangler;
 
@@ -140,7 +144,7 @@ namespace Monitor {
 
         InternalID    GetNewID();
         
-        InternalID    FindOrAddMonitoredPath(Monitor::Path, Monitor::TimePoint * outPrevUpdate = nullptr);
+        InternalID    FindOrAddMonitoredPath(Monitor::Path, Monitor::TimePoint * prevUpdate = nullptr);
         InternalID    FindOrAddHub(HubProp);
         InternalID    FindOrAddPipe(PipeProp);
 
@@ -150,10 +154,13 @@ namespace Monitor {
         void     HandleMonitoredPathMissing(InternalID);
         void     HandleMonitoredPathError(InternalID, BlackRoot::Debug::Exception*);
         void     HandleHubFileError(InternalID, BlackRoot::Debug::Exception*);
+        void     HandleWrangledPipeError(InternalID, BlackRoot::Debug::Exception*);
 
         std::string   SimpleFormatHub(HubProp);
         std::string   SimpleFormatPipe(PipeProp);
         Monitor::Path SimpleFormatPath(Monitor::Path);
+
+        bool    FileTimeEqualsWithEpsilon(TimePoint, TimePoint);
         
         void    AsynchReceiveTaskResult(const WranglerTaskResult&);
 

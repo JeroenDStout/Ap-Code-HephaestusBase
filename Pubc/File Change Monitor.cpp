@@ -9,6 +9,9 @@
   * - Detect circular dependancies (hub files can link in themselves!)
   * - Timeout for error files could increase upon repeated errors (?)
   * - If a file for a pipe does not exist, do not send it immediately
+  * - Handle files being written to being deleted (monitoring only for file existence)
+  * - Handle the situation in which a file is being written to for a longer
+  *   duration; i.e., hide errors while it is clear a file is write-locked
   */
 
 #include <time.h>
@@ -38,6 +41,8 @@ FileChangeMonitor::FileChangeMonitor()
 
     this->OriginalHubDependancy = this->GetNewID();
 
+    this->WranglerResultCount = 0;
+
     this->FileSource.reset(new BlackRoot::IO::BaseFileSource(""));
 }
 
@@ -61,8 +66,8 @@ void FileChangeMonitor::UpdateCycle()
         this->UpdateDirtyHubs();
         this->UpdateDirtyPipes();
 
-        bool anyActiveDirty  = this->GetActiveDirtyHubCount() > 0 ||
-                               this->GetActiveDirtyPipeCount() > 0;
+        bool anyActiveDirty  = this->FutureDirtyHubs.size() > 0 ||
+                               this->FutureDirtyPipes.size() > 0;
         bool anyActivity = anyActiveDirty;
 
         if (!anyActiveDirty) {
@@ -172,8 +177,11 @@ void FileChangeMonitor::UpdateSuspectPath(InternalID id)
             // We check whether the update _equals_ to ensure shenanigans so
             // that changed file times (renaming, creative version control) to
             // have a minimum impact
+            // We take a few ms margin to allow these times to be passed around
+            // with millisecond precision (to facilitate non-STD dynlibs etc)
         fileWriteTime = this->FileSource->LastWriteTime(prop.Path);
-        if (prop.LastUpdate == fileWriteTime) {
+
+        if (this->FileTimeEqualsWithEpsilon(prop.LastUpdate, fileWriteTime)) {
             return;
         }
     }
@@ -425,9 +433,6 @@ void FileChangeMonitor::UpdateDirtyPipe(InternalID id)
         this->FutureDirtyPipes.push_back(id);
         return;
     }
-
-        // Make dependants orphan before we even complete the hub process
-    this->MakeDependantsOnHubOrphan(id);
     
     cout{} << std::endl << "Pipe: " << this->SimpleFormatPipe(prop) << std::endl;
 
@@ -451,8 +456,11 @@ void FileChangeMonitor::CleanupOrphanedPipes()
 void FileChangeMonitor::AsynchReceiveTaskResult(const WranglerTaskResult& result)
 {
     using cout = BlackRoot::Util::Cout;
+    cout{} << "Result" << std::endl;
 
-    cout{} << "Received result." << std::endl;
+    std::unique_lock<std::mutex> lk(this->MxWranglerResults);
+    this->WranglerResults.push_back(result);
+    this->WranglerResultCount += 1;
 }
 
     //  Update outbox / inbox
@@ -489,13 +497,81 @@ void FileChangeMonitor::UpdatePipeOutbox()
 
     tasks.resize(outputCount);
     this->Wrangler->AsynchReceiveTasks(tasks);
+    
+    this->PendingPipes.insert(this->PendingPipes.end(), this->OutboxPipes.begin(), this->OutboxPipes.end());
 
     this->OutboxPipes.resize(0);
 }
 
 void FileChangeMonitor::UpdatePipeInbox()
 {
-    // TODO
+    using cout = BlackRoot::Util::Cout;
+
+    if (this->PendingPipes.size() == 0)
+        return;
+    if (this->WranglerResultCount == 0)
+        return;
+    
+    while (true) {
+            // See if we have wrangler results, and if so, get one
+        std::unique_lock<std::mutex> lk(this->MxWranglerResults);
+
+        auto it = this->WranglerResults.begin();
+        if (it == this->WranglerResults.end()) {
+            this->WranglerResultCount = 0;
+            return;
+        }
+
+        auto val = std::move(*it);
+
+        this->WranglerResults.erase(it);
+        this->WranglerResultCount -= 1;
+
+        lk.unlock();
+
+            // We gave the wrangler our unique pipe id as unique id
+        auto id = val.UniqueID;
+        
+            // Get our original data. If we can't find it, the pipe may
+            // have been removed before the wrangler could even return;
+            // this is not a problem for anybody, so just forget about it.
+        auto pipeit = this->PipeProperties.find(id);
+        if (pipeit == this->PipeProperties.end())
+            continue;
+        auto & pipe = pipeit->second;
+
+            // If there was an error give it to the handler; that probably
+            // will schedule it for a timeout and a retry
+        if (val.Exception) {
+            this->HandleWrangledPipeError(id, val.Exception);
+            continue;
+        }
+
+            // Add all read files as paths that this pipe depends on. If
+            // any path has a previous time that is past when we read it,
+            // we just dirty the pipe immediately again.
+            // If the path is new, it will now have the last modified time
+            // of when it was read and may be found to have changed.
+        for (auto & fi : val.ReadFiles) {
+            auto prevTime = fi.LastChange;
+            auto pathId = this->FindOrAddMonitoredPath(fi.Path, &prevTime);
+            pipe.PathDependencies.push_back(pathId);
+
+            if (!this->FileTimeEqualsWithEpsilon(fi.LastChange, prevTime)) {
+                this->DirtyPipes.push_back(id);
+            }
+        }
+        
+            // TODO: Update written-to files
+
+
+            // This pipe is done!
+        this->PendingPipes.erase(std::remove(this->PendingPipes.begin(), this->PendingPipes.end(), id), this->PendingPipes.end());
+        
+        cout{} << std::endl << "Pipe done: " << pipe.Tool << " (" << val.ProcessDuration.count() << "ms)" << std::endl
+            << " " << this->SimpleFormatPath(pipe.BasePathIn.string()) << std::endl
+            << " " << this->SimpleFormatPath(pipe.BasePathOut.string()) << std::endl;
+    }
 }
 
     //  Debug
@@ -517,14 +593,14 @@ FileChangeMonitor::InternalID FileChangeMonitor::GetNewID()
     return this->NextID++;
 }
 
-FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddMonitoredPath(Path path, TimePoint * outPrevTimePoint)
+FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddMonitoredPath(Path path, TimePoint * prevTimePoint)
 {
     for (auto it : this->MonitoredPaths) {
         if (it.second.Path != path)
             continue;
 
-        if (outPrevTimePoint) {
-            *outPrevTimePoint = it.second.LastUpdate;
+        if (prevTimePoint) {
+            *prevTimePoint = it.second.LastUpdate;
         }
         return it.first;
     }
@@ -532,8 +608,8 @@ FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddMonitoredPath(Path pat
     MonPath monPath;
     monPath.SetDefault();
     monPath.Path = path;
-    if (outPrevTimePoint) {
-        *outPrevTimePoint = monPath.LastUpdate;
+    if (prevTimePoint) {
+        monPath.LastUpdate = *prevTimePoint;
     }
 
     auto id = this->GetNewID();
@@ -546,7 +622,7 @@ FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddMonitoredPath(Path pat
 
 FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddHub(HubProp hub)
 {
-    for (auto it : this->HubProperties) {
+    for (auto & it : this->HubProperties) {
         if (!it.second.EqualsAbstractly(hub))
             continue;
         
@@ -578,7 +654,7 @@ FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddHub(HubProp hub)
 
 FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddPipe(PipeProp pipe)
 {
-    for (auto it : this->PipeProperties) {
+    for (auto & it : this->PipeProperties) {
         if (!it.second.EqualsAbstractly(pipe))
             continue;
         
@@ -589,7 +665,7 @@ FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddPipe(PipeProp pipe)
                 // if so, put us on the proper dirty pipe list
             auto found = std::find(this->OrphanedDirtyPipes.begin(), this->OrphanedDirtyPipes.end(), it.first);
             if (found != this->OrphanedDirtyPipes.end()) {
-                this->OrphanedDirtyPipes.erase(found);
+                this->OrphanedDirtyPipes.erase(std::remove(this->OrphanedDirtyPipes.begin(), this->OrphanedDirtyPipes.end(), it.first), this->OrphanedDirtyPipes.end());
                 this->DirtyPipes.push_back(it.first);
             }
         }
@@ -656,6 +732,12 @@ FileChangeMonitor::Count FileChangeMonitor::GetActiveDirtyHubCount()
 FileChangeMonitor::Count FileChangeMonitor::GetActiveDirtyPipeCount()
 {
     return (Count)(this->DirtyPipes.size() + this->FutureDirtyPipes.size());
+}
+
+bool FileChangeMonitor::FileTimeEqualsWithEpsilon(TimePoint lh, TimePoint rh)
+{
+    auto diff = lh - rh;
+    return (diff < std::chrono::milliseconds(5) && diff > std::chrono::milliseconds(-5));
 }
 
 std::string FileChangeMonitor::SimpleFormatDuration(long long t)
@@ -827,6 +909,38 @@ void FileChangeMonitor::HandleHubFileError(InternalID id, BlackRoot::Debug::Exce
 
         // Push the hub back on the dirty hub stack
     this->DirtyHubs.push_back(id);
+
+    delete e;
+}
+
+void FileChangeMonitor::HandleWrangledPipeError(InternalID id, BlackRoot::Debug::Exception *e)
+{
+    using cout = BlackRoot::Util::Cout;
+
+    auto it = this->PipeProperties.find(id);
+    if (it == this->PipeProperties.end())
+        return;
+    auto & prop = it->second;
+    
+    if (e) {
+        cout{} << "Pipe error: " << this->SimpleFormatPath(prop.BasePathIn.string()) << std::endl << " " << e->GetPrettyDescription() << std::endl;
+    }
+    else {
+        cout{} << "Unknown hub error: " << this->SimpleFormatPath(prop.BasePathIn.string()) << std::endl;
+    }
+    
+        // Set the timeout to a few seconds from now to prevent a file
+        // being constantly updated
+    Monitor::TimePoint currentTime = std::chrono::system_clock::now();
+    prop.Timeout = currentTime + std::chrono::seconds(4);
+
+        // As a precaution make all paths used by this pipe suspicious
+    for (auto & pid : prop.PathDependencies) {
+        this->SuspectPaths.push_back(pid);
+    }
+
+        // Push the pipe back on the dirty hub stack
+    this->DirtyPipes.push_back(id);
 
     delete e;
 }
