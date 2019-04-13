@@ -45,7 +45,10 @@ void PipeWrangler::ThreadedCall()
     WranglerTaskResult result;
 
     try {
-        cout{} << "Pipe: " << task.OriginTask->ToolName << std::endl << " " << task.OriginTask->FileIn << std::endl << " " << task.OriginTask->FileOut << std::endl;
+        cout{} << "Pipe: " << task.OriginTask->ToolName << std::endl
+            << " " << task.OriginTask->FileIn << std::endl
+            << " " << task.OriginTask->FileOut << std::endl
+            << " " << task.OriginTask->Settings.dump() << std::endl;
 
         auto tool = this->FindTool(task.OriginTask->ToolName);
 
