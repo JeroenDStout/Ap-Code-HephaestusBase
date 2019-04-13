@@ -52,6 +52,9 @@
     <ClCompile Include="..\Pubc\Pipe Tool Register.cpp">
       <Filter>Pipeline</Filter>
     </ClCompile>
+    <ClCompile Include="Pipe Tool Dummy.cpp">
+      <Filter>Pipe Tools</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Pubc\Version.h">
