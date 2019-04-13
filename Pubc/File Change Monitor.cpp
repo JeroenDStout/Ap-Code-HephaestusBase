@@ -77,8 +77,6 @@ void FileChangeMonitor::UpdateCycle()
         this->UpdatePipeOutbox();
         this->UpdatePipeInbox();
 
-        this->PendingSaveChanges |= anyActivity;
-
         if (this->PendingSaveChanges) {
             this->SaveToPersistent();
         }
@@ -200,6 +198,8 @@ void FileChangeMonitor::UpdateSuspectPath(InternalID id)
         return;
     }
     
+    this->PendingSaveChanges    = true;
+    
         // If the file was updated after our last update we consider _all_ things
         // based on this path dirty and in need of an update
     this->MakeUsersOfPathDirty(id);
@@ -245,6 +245,8 @@ void FileChangeMonitor::UpdateDirtyHub(InternalID id)
         this->FutureDirtyHubs.push_back(id);
         return;
     }
+    
+    this->PendingSaveChanges = true;
 
         // Make dependants orphan before we even complete the hub process
     this->MakeDependantsOnHubOrphan(id);
@@ -414,6 +416,8 @@ void FileChangeMonitor::CleanupOrphanedHubs()
         if (itProp == this->HubProperties.end())
             return;
         auto & prop = itProp->second;
+        
+        this->PendingSaveChanges = true;
 
             // If the hub has a dependency now, it is not orphaned
             // and does not need to be erased
@@ -462,6 +466,8 @@ void FileChangeMonitor::UpdateDirtyPipe(InternalID id)
         return;
     }
     
+    this->PendingSaveChanges = true;
+    
     cout{} << std::endl << "Pipe: " << this->SimpleFormatPipe(prop) << std::endl;
 
         // We remove all path dependencies; we 'send off' this pipe and
@@ -500,6 +506,8 @@ void FileChangeMonitor::UpdatePipeOutbox()
 
     if (this->OutboxPipes.size() == 0)
         return;
+
+    this->PendingSaveChanges    = true;
     
     cout{} << std::endl  << "Sending off " << this->OutboxPipes.size() << " pipes." << std::endl;
 
@@ -1044,6 +1052,8 @@ std::string FileChangeMonitor::SimpleFormatPipe(PipeProp prop)
 void FileChangeMonitor::HandleMonitoredPathMissing(InternalID id)
 {
     using cout = BlackRoot::Util::Cout;
+    
+    this->PendingSaveChanges = true;
 
     auto it = this->MonitoredPaths.find(id);
     if (it == this->MonitoredPaths.end())
@@ -1068,6 +1078,8 @@ void FileChangeMonitor::HandleMonitoredPathMissing(InternalID id)
 void FileChangeMonitor::HandleMonitoredPathError(InternalID id, BlackRoot::Debug::Exception *e)
 {
     using cout = BlackRoot::Util::Cout;
+    
+    this->PendingSaveChanges = true;
 
     auto it = this->MonitoredPaths.find(id);
     if (it == this->MonitoredPaths.end())
@@ -1089,6 +1101,8 @@ void FileChangeMonitor::HandleMonitoredPathError(InternalID id, BlackRoot::Debug
 void FileChangeMonitor::HandleHubFileError(InternalID id, BlackRoot::Debug::Exception *e)
 {
     using cout = BlackRoot::Util::Cout;
+    
+    this->PendingSaveChanges = true;
 
     auto it = this->HubProperties.find(id);
     if (it == this->HubProperties.end())
@@ -1121,6 +1135,8 @@ void FileChangeMonitor::HandleHubFileError(InternalID id, BlackRoot::Debug::Exce
 void FileChangeMonitor::HandleWrangledPipeError(InternalID id, BlackRoot::Debug::Exception *e)
 {
     using cout = BlackRoot::Util::Cout;
+    
+    this->PendingSaveChanges = true;
 
     auto it = this->PipeProperties.find(id);
     if (it == this->PipeProperties.end())
