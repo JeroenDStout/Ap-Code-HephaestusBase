@@ -380,6 +380,7 @@ void FileChangeMonitor::ProcessHubGroup(InternalID id, const ProcessProperties p
                     pipe.Tool          = tool;
                     pipe.BasePathIn    = fs::canonical(Monitor::Path(pathIn));
                     pipe.BasePathOut   = fs::canonical(Monitor::Path(pathOut));
+                    pipe.Settings      = settings;
 
                     this->FindOrAddPipe(pipe);
                 }
