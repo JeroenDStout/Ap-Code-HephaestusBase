@@ -55,22 +55,7 @@
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="..\..\Visual Studio\Shared Common Properties.props" />
-    <Import Project="..\..\Visual Studio\Shared Path Properties.props" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="..\..\Visual Studio\Shared Common Properties.props" />
-    <Import Project="..\..\Visual Studio\Shared Path Properties.props" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="..\..\Visual Studio\Shared Common Properties.props" />
-    <Import Project="..\..\Visual Studio\Shared Path Properties.props" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+  <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="..\..\Visual Studio\Shared Common Properties.props" />
     <Import Project="..\..\Visual Studio\Shared Path Properties.props" />
@@ -186,6 +171,7 @@
     <ClCompile Include="..\Pubc\Pipeline Meta.cpp" />
     <ClCompile Include="..\Pubc\Version.cpp" />
     <ClCompile Include="Interface Pipeline.cpp" />
+    <ClCompile Include="Pipe Tool Dummy.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="../Pubc/Base Pipeline.h" />
@@ -205,26 +191,11 @@
   <ItemGroup>
     <CustomBuild Include="..\Meta\generate_meta.txt">
       <FileType>Document</FileType>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Generating meta</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Generating meta</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Generating meta</Message>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Generating meta</Message>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">py "$(SolutionDir)../BlackRoot/Meta/generate_meta.py" "$(ProjectName)" "$(ProjectDir)../Meta" "$(ProjectDir)../.genc"</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">py "$(SolutionDir)../BlackRoot/Meta/generate_meta.py" "$(ProjectName)" "$(ProjectDir)../Meta" "$(ProjectDir)../.genc"</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">py "$(SolutionDir)../BlackRoot/Meta/generate_meta.py" "$(ProjectName)" "$(ProjectDir)../Meta" "$(ProjectDir)../.genc"</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">py "$(SolutionDir)../BlackRoot/Meta/generate_meta.py" "$(ProjectName)" "$(ProjectDir)../Meta" "$(ProjectDir)../.genc"</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(ProjectDir)..\.genc\def_contribute.h</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(ProjectDir)..\.genc\def_contribute.h</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)..\.genc\def_contribute.h</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)..\.genc\def_contribute.h</Outputs>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(ProjectDir)..\meta\contributors.json;$(ProjectDir)..\meta\libraries.json</AdditionalInputs>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(ProjectDir)..\meta\contributors.json;$(ProjectDir)..\meta\libraries.json</AdditionalInputs>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectDir)..\meta\contributors.json;$(ProjectDir)..\meta\libraries.json</AdditionalInputs>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(ProjectDir)..\meta\contributors.json;$(ProjectDir)..\meta\libraries.json</AdditionalInputs>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildInParallel>
-      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</BuildInParallel>
+      <Message>Generating meta</Message>
+      <Command>python "$(SolutionDir)../BlackRoot/Meta/generate_meta.py" "$(ProjectName)" "$(ProjectDir)../Meta" "$(ProjectDir)../.genc"</Command>
+      <Outputs>$(ProjectDir)..\.genc\def_contribute.h</Outputs>
+      <AdditionalInputs>$(ProjectDir)..\meta\contributors.json;$(ProjectDir)..\meta\libraries.json</AdditionalInputs>
+      <BuildInParallel>true</BuildInParallel>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
