@@ -4,6 +4,7 @@
 
 #include "BlackRoot/Pubc/Threaded IO Stream.h"
 #include "BlackRoot/Pubc/Files.h"
+#include "BlackRoot/Pubc/FileSource Snooper.h"
 
 #include "HephaestusBase/Pubc/Pipe Tool.h"
 #include "HephaestusBase/Pubc/Pipe Tool Register.h"
@@ -25,12 +26,13 @@ namespace Tools {
     void Dummy::Run(PipeToolInstr & instr) const
     {
         using cout       = BlackRoot::Util::Cout;
-        using FileSource = BlackRoot::IO::BaseFileSource;
+        using FileSource = BlackRoot::Util::FileSourceSnooper<BlackRoot::IO::BaseFileSource>;
         using Time       = BlackRoot::IO::FileTime;
 
-            // Get an interface to open files with; this is really
-            // just a wrap around std:: and os-specific code
-        FileSource fs("");
+            // Get an interface to open files with; we use FileSourceSnooper
+            // which logs the opening of files. This will help us remember all
+            // the files we use.
+        FileSource fs;
 
             // Gather some data about the in- and out-file
         bool outExists = fs.Exists(instr.FileOut);
@@ -38,14 +40,10 @@ namespace Tools {
         Time lastWriteIn  = fs.LastWriteTime(instr.FileIn);
         Time lastWriteOut = outExists ? fs.LastWriteTime(instr.FileOut) : std::chrono::system_clock::time_point{};
 
-            // We register the input file with its change time,
-            // this is important for two reasons:
-            // - Files can change during the processing, so we need the read time
-            // - A file can be dependant on multiple files, and they may only be
-            //   known _during_ processing.
-            // So we play our own administrator and add relevant files + times to
-            // this list.
-        instr.UsedFiles.push_back({ instr.FileIn, lastWriteIn });
+            // Read the in file, to keep up appearances of being a real pipe
+        auto file = fs.ReadFile(instr.FileIn, BlackRoot::IO::IFileSource::OpenInstr{}
+                                                .Access(BlackRoot::IO::FileMode::Access::Read)
+                                                .Share(BlackRoot::IO::FileMode::Share::Read));
 
             // Convert this to some strings so we can output it
             // (if you can make this elegant you are a better person than me)
@@ -66,7 +64,7 @@ namespace Tools {
         ss << std::endl;
         ss << "~*~*~ dummy pipe tool ~*~*~" << std::endl;
         ss << " " << instr.FileIn << std::endl;
-        ss << "  " << timeBufferIn;
+        ss << "  " << file.size() << " bytes, " << timeBufferIn;
         ss << " " << instr.FileOut << std::endl;
         if (outExists) {
             ss << "  " << timeBufferOut;
@@ -88,6 +86,16 @@ namespace Tools {
                 fs.Remove(instr.FileOut);
             }
             fs.CopyFile(instr.FileIn, instr.FileOut);
+        }
+
+            // Book-keep paths we used
+        for (const auto & it : fs.GetList()) {
+            if (it.WriteAccess) {
+                instr.WrittenFiles.push_back({ it.Path });
+            }
+            else {
+                instr.ReadFiles.push_back({ it.Path, it.OpenTime });
+            }
         }
     }
 
