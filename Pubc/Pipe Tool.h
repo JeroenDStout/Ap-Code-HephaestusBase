@@ -9,11 +9,13 @@
 
 #include "BlackRoot/Pubc/JSON.h"
 #include "BlackRoot/Pubc/Number Types.h"
-#include "BlackRoot/Pubc/Files Types.h"
+#include "BlackRoot/Pubc/Files.h"
 
 namespace Hephaestus {
 namespace Pipeline {
 
+        // Writing a pipe tool, these the instructions are given to you in the
+        // 'run' function, which the tool can (and often must) modify in return
     struct PipeToolInstr {
         using Path = BlackRoot::IO::FilePath;
         using JSON = BlackRoot::Format::JSON;
@@ -22,28 +24,40 @@ namespace Pipeline {
         Path     FileIn, FileOut;
         JSON     Settings;
 
-        struct UsedFile {
+        struct ReadFile {
             Path  Path;
             Time  LastChange;
         };
-
-        std::vector<UsedFile>   UsedFiles;
+        struct WrittenFile {
+            Path  Path;
+        };
+        std::vector<ReadFile>    ReadFiles;
+        std::vector<WrittenFile> WrittenFiles;
 
         void SetDefault();
     };
 
+        // Because pipe tools can be loaded across DLL boundaries, we have to
+        // use a C-like interface which we translate to and from. The final
+        // pipe tool can remain ignorant of this part.
     namespace DynLib {
         struct PipeToolInstr {
             const char *FileIn, *FileOut;
             const char *Settings;
             const char *Exception;
 
-            struct UsedFile {
-                const char *Path;
+            struct ReadFile {
                 uint64     LastChange;
+                const char *Path;
             };
-            int        UsedFileCount;
-            UsedFile * UsedFiles;
+            uint32   ReadFileCount;
+            ReadFile *ReadFiles;
+
+            struct WrittenFile {
+                const char *Path;
+            };
+            uint32   WrittenFileCount;
+            WrittenFile *WrittenFiles;
         };
 
         class IPipeTool {
@@ -58,6 +72,7 @@ namespace Pipeline {
         };
     }
 
+        // Inherit from this class to make a pipe tool and overload 'Run'
     class IPipeTool : public DynLib::IPipeTool {
     protected:
         std::string     Name;
@@ -67,8 +82,8 @@ namespace Pipeline {
 
         const char * GetToolName() const noexcept override;
 
-        void InternalRun(DynLib::PipeToolInstr &) const noexcept override;
-        void InternalCleanup(DynLib::PipeToolInstr &) const noexcept override;
+        void InternalRun(DynLib::PipeToolInstr &) const noexcept final override;
+        void InternalCleanup(DynLib::PipeToolInstr &) const noexcept final override;
             
         virtual void Run(PipeToolInstr &) const = 0;
     };
