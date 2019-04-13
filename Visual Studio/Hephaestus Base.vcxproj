@@ -76,7 +76,6 @@
     <PreBuildEvent />
     <Link>
       <AdditionalDependencies>Black Root.lib;Toolbox Base.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)../../BlackRoot/.bin/$(Platform)/$(Configuration)/;$(MSBuildThisFileDirectory)../../ToolboxBase/.bin/$(Platform)/$(Configuration)/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
     <ProjectReference>
@@ -98,7 +97,6 @@
     <PreBuildEvent />
     <Link>
       <AdditionalDependencies>Black Root.lib;Toolbox Base.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)../../BlackRoot/.bin/$(Platform)/$(Configuration)/;$(MSBuildThisFileDirectory)../../ToolboxBase/.bin/$(Platform)/$(Configuration)/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
     <ProjectReference>
@@ -121,7 +119,6 @@
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)../../BlackRoot/.bin/$(Platform)/$(Configuration)/;$(MSBuildThisFileDirectory)../../ToolboxBase/.bin/$(Platform)/$(Configuration)/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <AdditionalDependencies>Black Root.lib;Toolbox Base.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -146,7 +143,6 @@
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <AdditionalLibraryDirectories>$(MSBuildThisFileDirectory)../../BlackRoot/.bin/$(Platform)/$(Configuration)/;$(MSBuildThisFileDirectory)../../ToolboxBase/.bin/$(Platform)/$(Configuration)/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <AdditionalDependencies>Black Root.lib;Toolbox Base.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -192,8 +188,8 @@
     <CustomBuild Include="..\Meta\generate_meta.txt">
       <FileType>Document</FileType>
       <Message>Generating meta</Message>
-      <Command>python "$(SolutionDir)../BlackRoot/Meta/generate_meta.py" "$(ProjectName)" "$(ProjectDir)../Meta" "$(ProjectDir)../.genc"</Command>
-      <Outputs>$(ProjectDir)..\.genc\def_contribute.h</Outputs>
+      <Command>python "$(SolutionDir)../BlackRoot/Meta/generate_meta.py" "$(ProjectName)" "$(ProjectDir)../Meta" "$(ProjectDir)../-genc"</Command>
+      <Outputs>$(ProjectDir)..\-genc\def_contribute.h</Outputs>
       <AdditionalInputs>$(ProjectDir)..\meta\contributors.json;$(ProjectDir)..\meta\libraries.json</AdditionalInputs>
       <BuildInParallel>true</BuildInParallel>
     </CustomBuild>

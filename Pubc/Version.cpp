@@ -4,8 +4,8 @@
 
 #include "HephaestusBase/Pubc/Version.h"
 
-#include "HephaestusBase/.genc/def_repo_version.h"
-#include "HephaestusBase/.genc/def_contribute.h"
+#include "HephaestusBase/-genc/def_repo_version.h"
+#include "HephaestusBase/-genc/def_contribute.h"
 
 namespace Hephaestus {
 	namespace Core {
