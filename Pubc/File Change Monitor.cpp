@@ -43,6 +43,8 @@ FileChangeMonitor::FileChangeMonitor()
 
     this->WranglerResultCount = 0;
 
+    this->PendingSaveChanges = true;
+
     this->FileSource.reset(new BlackRoot::IO::BaseFileSource(""));
 }
 
@@ -63,22 +65,26 @@ void FileChangeMonitor::UpdateCycle()
     while (this->TargetState == State::Running) {
         std::unique_lock<std::mutex> lock(this->MutexAccessFiles);
         this->UpdateSuspectPaths();
-        this->UpdateDirtyHubs();
-        this->UpdateDirtyPipes();
 
-        bool anyActiveDirty  = this->FutureDirtyHubs.size() > 0 ||
-                               this->FutureDirtyPipes.size() > 0;
+        bool anyActiveDirty = this->GetActiveDirtyHubCount() > 0 ||
+                              this->GetActiveDirtyPipeCount() > 0;
         bool anyActivity = anyActiveDirty;
 
-        if (!anyActiveDirty) {
-            this->UpdatePipeOutbox();
-            this->UpdatePipeInbox();
+        this->UpdateDirtyHubs();
+        this->CleanupOrphanedHubs();
+        this->UpdateDirtyPipes();
+
+        this->UpdatePipeOutbox();
+        this->UpdatePipeInbox();
+
+        this->PendingSaveChanges |= anyActivity;
+
+        if (this->PendingSaveChanges) {
+            this->SaveToPersistent();
         }
 
-        if (!anyActivity) {
-            lock.unlock();
-            std::this_thread::sleep_for(std::chrono::milliseconds(250));
-        }
+        lock.unlock();
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
 }
 
@@ -400,7 +406,29 @@ void FileChangeMonitor::ProcessHubGroup(InternalID id, const ProcessProperties p
 
 void FileChangeMonitor::CleanupOrphanedHubs()
 {
-    // TODO
+    using cout = BlackRoot::Util::Cout;
+    
+    for (auto & it : this->PotentiallyOrphanedHubs) {
+            // Find the hub properties
+        auto & itProp = this->HubProperties.find(it);
+        if (itProp == this->HubProperties.end())
+            return;
+        auto & prop = itProp->second;
+
+            // If the hub has a dependency now, it is not orphaned
+            // and does not need to be erased
+        if (prop.HubDependency != InternalIDNone)
+            continue;
+
+        cout{} << "Cleanup hub " << this->SimpleFormatHub(prop) << std::endl;
+
+            // We make this hub's dependants orphaned, which at this
+            // point makes this function recursively remove all hubs
+        this->MakeDependantsOnHubOrphan(it);
+        this->HubProperties.erase(it);
+    }
+
+    this->PotentiallyOrphanedHubs.resize(0);
 }
 
     //  Update pipes
@@ -414,8 +442,8 @@ void FileChangeMonitor::UpdateDirtyPipe(InternalID id)
         // Use the current time as a reference for file changes
     Monitor::TimePoint currentTime = std::chrono::system_clock::now();
 
-        // Find the hub properties
-    auto itProp = this->PipeProperties.find(id);
+        // Find the pipe properties
+    auto & itProp = this->PipeProperties.find(id);
     if (itProp == this->PipeProperties.end())
         return;
     auto & prop = itProp->second;
@@ -492,6 +520,29 @@ void FileChangeMonitor::UpdatePipeOutbox()
         task.FileOut  = prop.BasePathOut;
         task.Settings = prop.Settings;
 
+#ifdef _WIN32
+        std::string outFile = task.FileOut.string();
+        if (outFile.find(".exe") != outFile.npos) {
+            cout{} << prop.BasePathOut.string() << std::endl;
+            cout{} << BlackRoot::System::GetExecutablePath() << std::endl;
+            if (prop.BasePathOut == BlackRoot::System::GetExecutablePath()) {
+                try {
+                    auto tmpPath = this->PersistentDirectory / "~old.exe";
+                    this->FileSource->CreateDirectories(this->PersistentDirectory);
+                    if (this->FileSource->Exists(tmpPath)) {
+                        this->FileSource->Remove(tmpPath);
+                    }
+                    this->FileSource->Rename(prop.BasePathOut, tmpPath);
+                    cout{} << "Renamed the current exe!" << std::endl;
+                }
+                catch (...) {
+                    cout{} << "Couldn't rename exe!" << std::endl;
+                }
+            }
+        }
+#endif
+
+
         tasks[outputCount++] = std::move(task);
     }
 
@@ -528,6 +579,8 @@ void FileChangeMonitor::UpdatePipeInbox()
         this->WranglerResultCount -= 1;
 
         lk.unlock();
+
+        this->PendingSaveChanges    = true;
 
             // We gave the wrangler our unique pipe id as unique id
         auto id = val.UniqueID;
@@ -572,6 +625,156 @@ void FileChangeMonitor::UpdatePipeInbox()
             << " " << this->SimpleFormatPath(pipe.BasePathIn.string()) << std::endl
             << " " << this->SimpleFormatPath(pipe.BasePathOut.string()) << std::endl;
     }
+}
+
+    //  Persistent
+    // --------------------
+
+void FileChangeMonitor::LoadFromPersistent()
+{
+    using cout = BlackRoot::Util::Cout;
+
+    auto pathIn   = this->PersistentDirectory / "state.json";
+    
+    if (!this->FileSource->Exists(pathIn))
+        return;
+    
+    BlackRoot::IO::BaseFileSource::FCont contents;
+    BlackRoot::Format::JSON jsonCont;
+    
+    auto clock = std::chrono::system_clock::time_point{};
+
+        // See if we can load the file
+    try {
+        contents = this->FileSource->ReadFile(pathIn, BlackRoot::IO::FileMode::OpenInstr{}.Default().Share(BlackRoot::IO::FileMode::Share::Read));
+        jsonCont = BlackRoot::Format::JSON::parse(contents);
+        
+        for (auto & it : jsonCont["paths"]) {
+            std::string path = it["path"];
+            auto time = clock + std::chrono::milliseconds(it["changed"].get<long long>());
+            this->FindOrAddMonitoredPath(it["path"].get<std::string>(), &time);
+        }
+
+        for (auto & it : jsonCont["pipes"]) {
+            PipeProp pipe;
+            pipe.SetDefault();
+            pipe.HubDependency = InternalIDNone;
+            pipe.Tool          = it["tool"].get<std::string>();
+            pipe.BasePathIn    = it["pathIn"].get<std::string>();
+            pipe.BasePathOut   = it["pathOut"].get<std::string>();
+            pipe.Settings      = it["settings"];
+
+            for (auto & pit : it["paths"]) {
+                DbAssert(pit.is_string());
+                pipe.PathDependencies.push_back(this->FindOrAddMonitoredPath(pit.get<std::string>(), nullptr));
+            }
+
+            this->FindOrAddPipe(pipe);
+        }
+    }
+    catch (BlackRoot::Debug::Exception * e) {
+        // TODO
+        return;
+    }
+    catch (...) {
+        // TODO
+        return;
+    }
+}
+
+void FileChangeMonitor::SaveToPersistent()
+{
+    using cout = BlackRoot::Util::Cout;
+
+    JSON outData;
+
+        // Create master JSON structure
+    auto & pathData = outData["paths"];
+    auto & pipeData = outData["pipes"];
+    
+    auto clock = std::chrono::system_clock::time_point{}; 
+
+    for (auto & it : this->MonitoredPaths) {
+        auto & prop = it.second;
+
+        pathData += {
+            { "path", prop.Path.string() },
+            { "changed", std::chrono::duration_cast<std::chrono::milliseconds>(prop.LastUpdate - clock).count() }
+        };
+    }
+    for (auto & it : this->PipeProperties) {
+        auto & prop = it.second;
+
+            // If it is orphaned, this is a good moment to forget about it
+        if (prop.HubDependency == InternalIDNone) 
+            continue;
+
+            // If we are dirty or pending, the state of the pipe depends on the executable;
+            // to reflect this we simply do not save this pipe.
+        if (std::find(this->DirtyPipes.begin(), this->DirtyPipes.end(), it.first) != this->DirtyPipes.end())
+            continue;
+        if (std::find(this->FutureDirtyPipes.begin(), this->FutureDirtyPipes.end(), it.first) != this->FutureDirtyPipes.end())
+            continue;
+        if (std::find(this->PendingPipes.begin(), this->PendingPipes.end(), it.first) != this->PendingPipes.end())
+            continue;
+
+        JSON pathData;
+
+        for (auto & pit : prop.PathDependencies) {
+            auto & fpath = this->MonitoredPaths.find(pit);
+            if (fpath == this->MonitoredPaths.end())
+                continue;
+            pathData += fpath->second.Path.string();
+        }
+
+        pipeData += {
+            { "tool", prop.Tool },
+            { "pathIn", prop.BasePathIn.string() },
+            { "pathOut", prop.BasePathOut.string() },
+            { "settings", prop.Settings },
+            { "paths", pathData }
+        };
+    }
+
+        // Write to file
+    try {
+        auto outPathWrite = this->PersistentDirectory / "~state.json";
+        auto outPathFin   = this->PersistentDirectory / "state.json";
+
+            // Ensure the directory and remove the old ~ file
+        this->FileSource->CreateDirectories(this->PersistentDirectory);
+        if (this->FileSource->Exists(outPathWrite)) {
+            this->FileSource->Remove(outPathWrite);
+        }
+
+            // Open a stream and dump the json
+        auto * stream = this->FileSource->OpenFile(this->PersistentDirectory / "~state.json", BlackRoot::IO::IFileSource::OpenInstr{}
+                                                    .Creation(BlackRoot::IO::FileMode::Creation::CreateAlways)
+                                                    .Access(BlackRoot::IO::FileMode::Access::Read | BlackRoot::IO::FileMode::Access::Write)
+                                                    .Share(BlackRoot::IO::FileMode::Share::None) );
+
+        auto str = outData.dump(4);
+        stream->Write((void*)(str.c_str()), str.length());
+        stream->CloseAndRelease();
+        
+            // Rename our ~ file to the final name
+        if (this->FileSource->Exists(outPathFin)) {
+            this->FileSource->Remove(outPathFin);
+        }
+        this->FileSource->Rename(outPathWrite, outPathFin);
+    }
+    catch (std::exception * e) {
+        // TODO
+        return;
+    }
+    catch (...) {
+        // TODO
+        return;
+    }
+
+    cout{} << "Saved." << std::endl;
+
+    this->PendingSaveChanges = false;
 }
 
     //  Debug
@@ -672,15 +875,16 @@ FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddPipe(PipeProp pipe)
 
         return it.first;
     }
-    
-        // Note, we do not add any path dependencies. As a new pipe we by default are dirty,
-        // and by default we'll be sent off; there is no use to tracking anything
-    pipe.PathDependencies.resize(0);
 
     auto id = this->GetNewID();
     this->PipeProperties[id] = pipe;
-
-    this->FutureDirtyPipes.push_back(id);
+    
+        // If we are created as an orphan we should just quietly exist; but
+        // if we have a parent hub we should consider ourselves dirty.
+    if (pipe.HubDependency != Monitor::InternalIDNone) {
+        pipe.PathDependencies.resize(0);
+        this->FutureDirtyPipes.push_back(id);
+    }
 
     return id;
 }
@@ -711,6 +915,7 @@ void FileChangeMonitor::MakeDependantsOnHubOrphan(InternalID id)
         if (id != it.second.HubDependency)
             continue;
         it.second.HubDependency = Monitor::InternalIDNone;
+        this->PotentiallyOrphanedHubs.push_back(it.first);
     }
     
         // Check pipes
@@ -973,6 +1178,14 @@ void FileChangeMonitor::Begin()
         BlackRoot::System::SetCurrentThreadPriority(BlackRoot::System::ThreadPriority::Lowest);
 
         cout{} << "Starting FileChangeMontor thread." << std::endl;
+        
+        try {
+            std::unique_lock<std::mutex> lock(this->MutexAccessFiles);
+            this->LoadFromPersistent();
+        }
+        catch (BlackRoot::Debug::Exception * e) {
+            this->HandleThreadException(e);
+        }
 
         this->CurrentState = State::Running;
         try {
@@ -983,6 +1196,14 @@ void FileChangeMonitor::Begin()
         }
 
         cout{} << "Ending FileChangeMontor thread." << std::endl;
+        
+        try {
+            std::unique_lock<std::mutex> lock(this->MutexAccessFiles);
+            this->SaveToPersistent();
+        }
+        catch (BlackRoot::Debug::Exception * e) {
+            this->HandleThreadException(e);
+        }
 
         this->CurrentState = State::Stopped;
     });
@@ -992,6 +1213,16 @@ void FileChangeMonitor::EndAndWait()
 {
     this->TargetState = State::Stopped;
     this->UpdateThread.join();
+}
+
+void FileChangeMonitor::SetPersistentDirectory(const BlackRoot::IO::FilePath path)
+{
+    this->PersistentDirectory = fs::canonical(path);
+}
+
+void FileChangeMonitor::SetReferenceDirectory(const BlackRoot::IO::FilePath path)
+{
+    this->InfoReferenceDirectory = fs::canonical(path);
 }
 
 void FileChangeMonitor::AddBaseHubFile(const BlackRoot::IO::FilePath path)
@@ -1008,11 +1239,6 @@ void FileChangeMonitor::AddBaseHubFile(const BlackRoot::IO::FilePath path)
     hub.InputProcessProp.StringVariables["cur-dir"] = hub.Path.parent_path().string();
 
     this->FindOrAddHub(hub);
-}
-
-void FileChangeMonitor::SetReferenceDirectory(const BlackRoot::IO::FilePath path)
-{
-    this->InfoReferenceDirectory = fs::canonical(path);
 }
 
 void FileChangeMonitor::SetWrangler(IWrangler * wrangler)

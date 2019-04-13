@@ -44,6 +44,7 @@ namespace Base {
         void StopProcessing() override;
 
         TB_MESSAGES_DECLARE_MEMBER_FUNCTION(setReferenceDirectory);
+        TB_MESSAGES_DECLARE_MEMBER_FUNCTION(setPersistentDirectory);
 	};
 
 }

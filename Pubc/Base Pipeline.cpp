@@ -18,6 +18,7 @@ TB_MESSAGES_BEGIN_DEFINE(Pipeline);
 
 TB_MESSAGES_ENUM_BEGIN_MEMBER_FUNCTIONS(Pipeline);
 TB_MESSAGES_ENUM_MEMBER_FUNCTION(Pipeline, setReferenceDirectory);
+TB_MESSAGES_ENUM_MEMBER_FUNCTION(Pipeline, setPersistentDirectory);
 TB_MESSAGES_ENUM_END_MEMBER_FUNCTIONS(Pipeline);
 
 TB_MESSAGES_END_DEFINE(Pipeline);
@@ -25,6 +26,7 @@ TB_MESSAGES_END_DEFINE(Pipeline);
 void Pipeline::Initialise(const BlackRoot::Format::JSON param)
 {
     this->PipeProps.Monitor.SetReferenceDirectory(Toolbox::Core::GetEnvironment()->GetRefDir() / "../../");
+    this->PipeProps.Monitor.SetPersistentDirectory(Toolbox::Core::GetEnvironment()->GetRefDir() / "../../.hep/");
     this->PipeProps.Monitor.SetWrangler(&this->PipeProps.Wrangler);
 
     for (const auto & it : Hephaestus::Pipeline::PipeRegistry::GetPipeList()) {
@@ -64,12 +66,22 @@ void Pipeline::StopProcessing()
     this->PipeProps.Wrangler.EndAndWait();
 }
 
+void Pipeline::_setPersistentDirectory(Toolbox::Messaging::IAsynchMessage * message)
+{
+    // Todo: msg safety
+
+    std::string s = message->Message.begin().value();
+    this->PipeProps.Monitor.SetPersistentDirectory(Toolbox::Core::GetEnvironment()->GetRefDir() / s);
+
+    message->SetOK();
+}
+
 void Pipeline::_setReferenceDirectory(Toolbox::Messaging::IAsynchMessage * message)
 {
     // Todo: msg safety
 
     std::string s = message->Message.begin().value();
-    this->PipeProps.Monitor.SetReferenceDirectory(Toolbox::Core::GetEnvironment()->GetRefDir() / s);
+    this->PipeProps.Monitor.SetPersistentDirectory(Toolbox::Core::GetEnvironment()->GetRefDir() / s);
 
     message->SetOK();
 }

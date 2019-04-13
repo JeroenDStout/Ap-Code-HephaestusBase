@@ -105,7 +105,7 @@ namespace Monitor {
         std::map<InternalID, PipeProp>        PipeProperties;
 
         std::vector<InternalID>               SuspectPaths, FutureSuspectPaths;
-        std::vector<InternalID>               DirtyHubs, FutureDirtyHubs, OrphanedDirtyHubs;
+        std::vector<InternalID>               DirtyHubs, FutureDirtyHubs, PotentiallyOrphanedHubs, OrphanedDirtyHubs;
         std::vector<InternalID>               DirtyPipes, FutureDirtyPipes, OrphanedDirtyPipes;
         std::vector<InternalID>               OutboxPipes, PendingPipes, InboxPipes;
 
@@ -119,6 +119,9 @@ namespace Monitor {
 
         Pipeline::IWrangler                   *Wrangler;
 
+        bool                                  PendingSaveChanges;
+        
+        Monitor::Path                         PersistentDirectory;
         Monitor::Path                         InfoReferenceDirectory;
         
         void    UpdateCycle();
@@ -159,6 +162,9 @@ namespace Monitor {
         std::string   SimpleFormatHub(HubProp);
         std::string   SimpleFormatPipe(PipeProp);
         Monitor::Path SimpleFormatPath(Monitor::Path);
+        
+        void    LoadFromPersistent();
+        void    SaveToPersistent();
 
         bool    FileTimeEqualsWithEpsilon(TimePoint, TimePoint);
         
@@ -170,9 +176,11 @@ namespace Monitor {
 
         std::string   SimpleFormatDuration(long long);
         bool    PathContainsWildcards(const std::string);
+        
+        void    SetPersistentDirectory(const BlackRoot::IO::FilePath);
+        void    SetReferenceDirectory(const BlackRoot::IO::FilePath);
 
         void    AddBaseHubFile(const BlackRoot::IO::FilePath);
-        void    SetReferenceDirectory(const BlackRoot::IO::FilePath);
 
         void    SetWrangler(Pipeline::IWrangler*);
 
