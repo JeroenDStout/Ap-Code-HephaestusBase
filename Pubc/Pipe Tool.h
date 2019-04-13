@@ -53,7 +53,8 @@ namespace Pipeline {
 
         public:
             virtual const char * GetToolName() const noexcept = 0;
-            virtual void Run(Pipeline::PipeToolInstr &) const;
+            
+            void Run(Pipeline::PipeToolInstr &) const;
         };
     }
 

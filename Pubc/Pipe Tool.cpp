@@ -16,15 +16,18 @@ using namespace Hephaestus::Pipeline;
  {
         // Get string version of settings
      std::string settings = _instr.Settings.dump();
+     std::string fileIn   = _instr.FileIn.string();
+     std::string fileOut  = _instr.FileOut.string();
 
         // Create the instr in C-style for passing the lib border
      DynLib::PipeToolInstr instr;
-     instr.FileIn    = _instr.FileIn.u8string().c_str();
-     instr.FileOut   = _instr.FileOut.u8string().c_str();
+     instr.FileIn    = fileIn.c_str();
+     instr.FileOut   = fileOut.c_str();
      instr.Settings  = settings.c_str();
      instr.Exception = nullptr;
 
-        // Call a function which converts back and runs
+        // Call a function which converts back and runs; the
+        // virtual pointer calls across to the dynlib side
      this->InternalRun(instr);  
 
         // Check for exception
