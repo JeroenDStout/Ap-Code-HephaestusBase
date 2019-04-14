@@ -71,7 +71,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <PreprocessorDefinitions>__PROJECT__=HephaestusBase;__PROJECTSTR__="HephaestusBase Base";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>__PROJECT__=HephaestusBase;__PROJECTSTR__="HephaestusBase";%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <PreBuildEvent />
     <Link>
@@ -92,7 +92,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <PreprocessorDefinitions>__PROJECT__=HephaestusBase;__PROJECTSTR__="HephaestusBase Base";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>__PROJECT__=HephaestusBase;__PROJECTSTR__="HephaestusBase";%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <PreBuildEvent />
     <Link>
@@ -115,7 +115,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <PreprocessorDefinitions>__PROJECT__=HephaestusBase;__PROJECTSTR__="HephaestusBase Base";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>__PROJECT__=HephaestusBase;__PROJECTSTR__="HephaestusBase";%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -139,7 +139,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <PreprocessorDefinitions>__PROJECT__=HephaestusBase;__PROJECTSTR__="HephaestusBase Base";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>__PROJECT__=HephaestusBase;__PROJECTSTR__="HephaestusBase";%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
