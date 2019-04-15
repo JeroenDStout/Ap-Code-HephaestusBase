@@ -277,7 +277,9 @@ void FileChangeMonitor::UpdateDirtyHub(InternalID id)
 }
 
 void FileChangeMonitor::ProcessHubGroup(InternalID id, const ProcessProperties prop, JSON group)
-{
+{ DbFunctionTry {
+    using cout = BlackRoot::Util::Cout;
+
     ProcessProperties subProp = prop;
 
         // Adapt our variables with potential changes based on the hub
@@ -404,6 +406,7 @@ void FileChangeMonitor::ProcessHubGroup(InternalID id, const ProcessProperties p
             }
         }
     }
+} DbFunctionCatch;
 }
 
 void FileChangeMonitor::CleanupOrphanedHubs()

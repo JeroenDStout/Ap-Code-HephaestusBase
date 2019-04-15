@@ -84,9 +84,12 @@ void IPipeTool::InternalRun(DynLib::PipeToolInstr & _instr) const noexcept
             // Run the conversion
         this->Run(instr);
     }
-    catch (std::exception * e) {
+    catch (BlackRoot::Debug::Exception * e) {
         _instr.Exception = _strdup(e->what());
-        delete e;
+        return;
+    }
+    catch (std::exception e) {
+        _instr.Exception = _strdup(e.what());
         return;
     }
     catch (...) {

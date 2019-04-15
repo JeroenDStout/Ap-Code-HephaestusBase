@@ -67,8 +67,8 @@ void PipeWrangler::ThreadedCall()
     catch (BlackRoot::Debug::Exception * e) {
         result.Exception = e;
     }
-    catch (std::exception * e) {
-        result.Exception = new BlackRoot::Debug::Exception(e->what(), {});
+    catch (std::exception e) {
+        result.Exception = new BlackRoot::Debug::Exception(e.what(), {});
     }
     catch (...) {
         result.Exception = new BlackRoot::Debug::Exception("Unknown error trying to process task", {});
