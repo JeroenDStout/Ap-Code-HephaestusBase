@@ -49,11 +49,6 @@ void PipeWrangler::ThreadedCall()
     Pipeline::PipeToolInstr instr;
 
     try {
-        cout{} << "Pipe: " << task.OriginTask->ToolName << std::endl
-            << " " << task.OriginTask->FileIn << std::endl
-            << " " << task.OriginTask->FileOut << std::endl
-            << " " << task.OriginTask->Settings.dump() << std::endl;
-
         auto tool = this->FindTool(task.OriginTask->ToolName);
 
         instr.FileIn    = task.OriginTask->FileIn;
@@ -75,7 +70,11 @@ void PipeWrangler::ThreadedCall()
     }
 
     if (result.Exception) {
-        cout{} << std::endl << "Pipe error: " << task.OriginTask->ToolName << std::endl << " " << task.OriginTask->FileIn << std::endl << " " << result.Exception->GetPrettyDescription() << std::endl;
+        cout{} << std::endl << "Pipe error: " << task.OriginTask->ToolName << std::endl
+            << " " << task.OriginTask->FileIn << std::endl
+            << " " << task.OriginTask->FileOut << std::endl
+            << " " << task.OriginTask->Settings.dump() << std::endl
+            << " " << result.Exception->GetPrettyDescription() << std::endl;
     }
 
     for (auto & it : instr.ReadFiles) {
