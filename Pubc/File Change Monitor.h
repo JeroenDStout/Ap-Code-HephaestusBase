@@ -15,6 +15,7 @@
 #include "BlackRoot/Pubc/Number Types.h"
 #include "BlackRoot/Pubc/Files Types.h"
 #include "BlackRoot/Pubc/JSON.h"
+#include "BlackRoot/Pubc/File Wildcard.h"
 
 #include "HephaestusBase/Pubc/Pipeline Meta.h"
 
@@ -29,6 +30,7 @@ namespace Monitor {
     using JSON            = BlackRoot::Format::JSON;
     using Path            = BlackRoot::IO::FilePath;
     using InternalIDList  = std::vector<InternalID>;
+    using WildcardCheck   = BlackRoot::Util::SmartFileWildcard;
 
     struct ProcessProperties {
         std::unordered_map<std::string, std::string>    StringVariables;
@@ -48,6 +50,26 @@ namespace Monitor {
         void    SetDefault();
     };
 
+    struct MonitoredWildcard {
+        WildcardCheck       Check;
+
+        void    SetDefault();
+    };
+
+    struct PipeWildcards {
+        InternalID          WildcardDependency;
+        InternalID          HubDependency;
+        
+        ProcessProperties   InputProcessProp;
+
+        std::string         Tool;
+        Path                BasePathIn, BasePathOut;
+        JSON                Settings;
+
+        void    SetDefault();
+        bool    EqualsAbstractly(const PipeWildcards);
+    };
+
     struct HubProperties {
         InternalIDList      PathDependencies;
 
@@ -65,6 +87,7 @@ namespace Monitor {
         InternalIDList      PathDependencies;
             
         InternalID          HubDependency;
+        InternalID          WildcardDependency;
         std::string         Tool;
         Path                BasePathIn, BasePathOut;
             
@@ -80,8 +103,10 @@ namespace Monitor {
     protected:
         using InternalID      = Monitor::InternalID;
         using MonPath         = Monitor::MonitoredPath;
+        using MonWild         = Monitor::MonitoredWildcard;
         using HubProp         = Monitor::HubProperties;
         using PipeProp        = Monitor::PipeProperties;
+        using PipeWild        = Monitor::PipeWildcards;
         using Count           = InternalID;
 
         struct State {
@@ -93,7 +118,7 @@ namespace Monitor {
             };
         };
 
-        std::unique_ptr<BlackRoot::IO::IFileSource> FileSource;
+        BlackRoot::IO::IFileSource            *FileSource;
         
         std::atomic<InternalID>               NextID;
 
@@ -101,12 +126,16 @@ namespace Monitor {
         std::thread                           UpdateThread;
 
         std::map<InternalID, MonPath>         MonitoredPaths;
+        std::map<InternalID, MonWild>         MonitoredWildcards;
         std::map<InternalID, HubProp>         HubProperties;
+        std::map<InternalID, PipeWild>        PipeWildcards;
         std::map<InternalID, PipeProp>        PipeProperties;
 
         std::vector<InternalID>               SuspectPaths, FutureSuspectPaths;
+        std::vector<InternalID>               SuspectWildcards, FutureSuspectWildcards;
         std::vector<InternalID>               DirtyHubs, FutureDirtyHubs, PotentiallyOrphanedHubs, OrphanedDirtyHubs;
         std::vector<InternalID>               DirtyPipes, FutureDirtyPipes, OrphanedDirtyPipes;
+        std::vector<InternalID>               DirtyPipeWildcards, FutureDirtyPipeWildcards;
         std::vector<InternalID>               OutboxPipes, PendingPipes, InboxPipes;
 
         std::mutex                            MutexAccessFiles;
@@ -125,10 +154,14 @@ namespace Monitor {
         Monitor::Path                         InfoReferenceDirectory;
         
         void    UpdateCycle();
+        void    UpdateSuspectWildcards();
+        void    UpdateSuspectWildcard(InternalID);
         void    UpdateSuspectPaths();
         void    UpdateSuspectPath(InternalID);
         void    UpdateDirtyHubs();
         void    UpdateDirtyHub(InternalID);
+        void    UpdateDirtyPipeWildcards();
+        void    UpdateDirtyPipeWildcard(InternalID);
         void    UpdateDirtyPipes();
         void    UpdateDirtyPipe(InternalID);
         void    UpdatePipeOutbox();
@@ -148,11 +181,15 @@ namespace Monitor {
         InternalID    GetNewID();
         
         InternalID    FindOrAddMonitoredPath(Monitor::Path, Monitor::TimePoint * prevUpdate = nullptr);
+        InternalID    FindOrAddMonitoredWildcard(Monitor::Path);
         InternalID    FindOrAddHub(HubProp);
         InternalID    FindOrAddPipe(PipeProp);
+        InternalID    FindOrAddPipeWildcards(PipeWild);
 
         void     MakeUsersOfPathDirty(InternalID);
+        void     MakeUsersOfWildcardDirty(InternalID);
         void     MakeDependantsOnHubOrphan(InternalID);
+        void     MakeDependantsOnPipeWildcardsOrphan(InternalID);
 
         void     HandleMonitoredPathMissing(InternalID);
         void     HandleMonitoredPathError(InternalID, BlackRoot::Debug::Exception*);

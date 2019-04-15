@@ -23,6 +23,7 @@
 #include "BlackRoot/Pubc/Files.h"
 #include "BlackRoot/Pubc/JSON.h"
 #include "BlackRoot/Pubc/Stringstream.h"
+#include "BlackRoot/Pubc/File Wildcard.h"
 
 #include "HephaestusBase/Pubc/File Change Monitor.h"
 
@@ -45,7 +46,7 @@ FileChangeMonitor::FileChangeMonitor()
 
     this->PendingSaveChanges = true;
 
-    this->FileSource.reset(new BlackRoot::IO::BaseFileSource(""));
+    this->FileSource = new BlackRoot::IO::BaseFileSource();
 }
 
 FileChangeMonitor::~FileChangeMonitor()
@@ -55,6 +56,8 @@ FileChangeMonitor::~FileChangeMonitor()
     if (this->CurrentState != State::Stopped) {
         cout{} << "!!Change monitor was not stopped before being destructed!";
     }
+
+    delete this->FileSource;
 }
 
     //  Update cycle
@@ -65,6 +68,7 @@ void FileChangeMonitor::UpdateCycle()
     while (this->TargetState == State::Running) {
         std::unique_lock<std::mutex> lock(this->MutexAccessFiles);
         this->UpdateSuspectPaths();
+        this->UpdateSuspectWildcards();
 
         bool anyActiveDirty = this->GetActiveDirtyHubCount() > 0 ||
                               this->GetActiveDirtyPipeCount() > 0;
@@ -72,6 +76,8 @@ void FileChangeMonitor::UpdateCycle()
 
         this->UpdateDirtyHubs();
         this->CleanupOrphanedHubs();
+
+        this->UpdateDirtyPipeWildcards();
         this->UpdateDirtyPipes();
 
         this->UpdatePipeOutbox();
@@ -83,6 +89,28 @@ void FileChangeMonitor::UpdateCycle()
 
         lock.unlock();
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    }
+}
+
+void FileChangeMonitor::UpdateSuspectWildcards()
+{
+    this->SuspectWildcards.insert(this->SuspectWildcards.end(), this->FutureSuspectWildcards.begin(), this->FutureSuspectWildcards.end());
+    this->FutureSuspectWildcards.resize(0);
+
+    while (this->SuspectWildcards.size() > 0) {
+        if (this->ShouldInterrupt())
+            break;
+
+            // Select a single path from our suspect list and try to update it
+            // If anything fails the update function will put it in the list again
+        auto id = *this->SuspectWildcards.begin();
+        this->SuspectWildcards.erase(std::remove(this->SuspectWildcards.begin(), this->SuspectWildcards.end(), id), this->SuspectWildcards.end());
+        this->UpdateSuspectWildcard(id);
+    }
+
+        // Debug; for now just make all wildcards suspect to check functionality
+    for (auto it : this->MonitoredWildcards) {
+        this->SuspectWildcards.push_back(it.first);
     }
 }
 
@@ -122,6 +150,22 @@ void FileChangeMonitor::UpdateDirtyHubs()
         auto id = *this->DirtyHubs.begin();
         this->DirtyHubs.erase(std::remove(this->DirtyHubs.begin(), this->DirtyHubs.end(), id), this->DirtyHubs.end());
         this->UpdateDirtyHub(id);
+    }
+}
+
+void FileChangeMonitor::UpdateDirtyPipeWildcards()
+{
+    this->DirtyPipeWildcards.insert(this->DirtyPipeWildcards.end(), this->FutureDirtyPipeWildcards.begin(), this->FutureDirtyPipeWildcards.end());
+    this->FutureDirtyPipeWildcards.resize(0);
+
+    while (this->DirtyPipeWildcards.size() > 0) {
+        if (this->ShouldInterrupt())
+            break;
+
+            // Select a wildcard from our dirty list and try to update it
+        auto id = *this->DirtyPipeWildcards.begin();
+        this->DirtyPipeWildcards.erase(std::remove(this->DirtyPipeWildcards.begin(), this->DirtyPipeWildcards.end(), id), this->DirtyPipeWildcards.end());
+        this->UpdateDirtyPipeWildcard(id);
     }
 }
 
@@ -215,6 +259,26 @@ void FileChangeMonitor::UpdateSuspectPath(InternalID id)
     prop.LastUpdate = fileWriteTime;
 }
 
+    //  Update wildcards
+    // --------------------
+
+void FileChangeMonitor::UpdateSuspectWildcard(InternalID id)
+{
+    namespace IO = BlackRoot::IO;
+    using cout = BlackRoot::Util::Cout;
+
+        // Find the path properties
+    auto itProp = this->MonitoredWildcards.find(id);
+    if (itProp == this->MonitoredWildcards.end())
+        return;
+    auto & prop = itProp->second;
+
+    if (prop.Check.Check(this->FileSource)) {
+        cout{} << std::endl << "Update wildcard" << std::endl << " " << prop.Check.GetCheckPath() << std::endl;
+        this->MakeUsersOfWildcardDirty(id);
+    }
+}
+
     //  Update hubs
     // --------------------
 
@@ -272,8 +336,6 @@ void FileChangeMonitor::UpdateDirtyHub(InternalID id)
         this->HandleHubFileError(id, nullptr);
         return;
     }
-    
-    cout{} << "Done." << std::endl;
 }
 
 void FileChangeMonitor::ProcessHubGroup(InternalID id, const ProcessProperties prop, JSON group)
@@ -364,9 +426,6 @@ void FileChangeMonitor::ProcessHubGroup(InternalID id, const ProcessProperties p
                 uniqueProp.AdaptVariables(list.value());
             }
 
-                // Blanket replace this entire pipe
-            uniqueProp.ProcessJSONRecursively(&elem);
-
                 // Obtain settings
             auto & settings = elem["settings"];
 
@@ -382,17 +441,38 @@ void FileChangeMonitor::ProcessHubGroup(InternalID id, const ProcessProperties p
 
                     DbAssertMsgFatal(pathIn.length() > 0, "Pipe path must have 'in' value");
                     DbAssertMsgFatal(pathOut.length() > 0, "Pipe path must have 'out' value");
+                    
+                        // We only process the _in path; it may be a wildcard, which may
+                        // make the processing of the _out_ path dependant on variables
+                        // created by the wildcard
+                    pathIn  = uniqueProp.ProcessString(pathIn);
 
-                        // Paths may contain wildcards. A wildcard-containing path spaws its
-                        // own objects (TODO) to monitor changes to folder structures which
-                        // may change the processing, variables, etc
+                        // If we have a wildard, create a pipewildcard which will handle updates,
+                        // or find an orphan with the right properties
                     if (this->PathContainsWildcards(pathIn)) {
-                            // TODO
-                        DbAssertMsgFatal(0, "Wildcards are not yet supported.");
+                        PipeWild pipe;
+                        pipe.SetDefault();
+                        pipe.HubDependency      = id;
+                        pipe.WildcardDependency = this->FindOrAddMonitoredWildcard(pathIn);
+                        pipe.InputProcessProp   = uniqueProp;
+                        pipe.Tool               = tool;
+                        pipe.BasePathIn         = fs::canonical(Monitor::Path(pathIn));
+                        pipe.BasePathOut        = Monitor::Path(pathOut);
+                        pipe.Settings           = settings;
+
+                        this->FindOrAddPipeWildcards(pipe);
                         continue;
                     }
+                    
+                        // With no wildcard, we are free to process the out path
+                    pathOut = uniqueProp.ProcessString(pathOut);
 
-                        // Create a reference for finding an orphaned pipe; or creating a new one
+                        // Do the base replacement for the settings; a wildcard can
+                        // actually replace its settings, so we do this as a copy
+                    auto uniqueSettings = settings;
+                    uniqueProp.ProcessJSONRecursively(&uniqueSettings);
+
+                        // Create a regular pipe, or find an orphan with the right properties
                     PipeProp pipe;
                     pipe.SetDefault();
                     pipe.HubDependency = id;
@@ -440,6 +520,54 @@ void FileChangeMonitor::CleanupOrphanedHubs()
 
     //  Update pipes
     // --------------------
+
+void FileChangeMonitor::UpdateDirtyPipeWildcard(InternalID id)
+{
+    namespace IO = BlackRoot::IO;
+    using cout = BlackRoot::Util::Cout;
+
+        // Find the wildcard properties
+    auto & itProp = this->PipeWildcards.find(id);
+    if (itProp == this->PipeWildcards.end())
+        return;
+    auto & prop = itProp->second;
+
+        // Check the paths
+    WildcardCheck check;
+    check.SetCheckPath(prop.BasePathIn);
+    check.SetWildcard("*");
+    check.SetDelimiters("~", "~");
+    check.Check(this->FileSource);
+
+        // For each found path, try to make a pipe
+    for (auto & it : check.GetFound()) {
+
+            // Every path gets its unique properties, with the
+            // wildcard replacements as variables
+        Monitor::ProcessProperties uniqueProp = prop.InputProcessProp;
+        for (auto & r : it.Replacements) {
+            uniqueProp.StringVariables[r.first] = r.second;
+        }
+
+        auto uniqueSettings = prop.Settings;
+        uniqueProp.ProcessJSONRecursively(&uniqueSettings);
+                    
+            // Find the outpath
+        std::string pathOut = uniqueProp.ProcessString(prop.BasePathOut.string());
+
+            // Create a regular pipe, or find an orphan with the right properties
+        PipeProp pipe;
+        pipe.SetDefault();
+        pipe.HubDependency      = prop.HubDependency;
+        pipe.WildcardDependency = id;
+        pipe.Tool               = prop.Tool;
+        pipe.BasePathIn         = fs::canonical(it.FoundPath);
+        pipe.BasePathOut        = fs::canonical(Monitor::Path(pathOut));
+        pipe.Settings           = std::move(uniqueSettings);
+
+        this->FindOrAddPipe(pipe);
+    }
+}
 
 void FileChangeMonitor::UpdateDirtyPipe(InternalID id)
 {
@@ -493,7 +621,6 @@ void FileChangeMonitor::CleanupOrphanedPipes()
 void FileChangeMonitor::AsynchReceiveTaskResult(const WranglerTaskResult& result)
 {
     using cout = BlackRoot::Util::Cout;
-    cout{} << "Result" << std::endl;
 
     std::unique_lock<std::mutex> lk(this->MxWranglerResults);
     this->WranglerResults.push_back(result);
@@ -534,8 +661,6 @@ void FileChangeMonitor::UpdatePipeOutbox()
 #ifdef _WIN32
         std::string outFile = task.FileOut.string();
         if (outFile.find(".exe") != outFile.npos) {
-            cout{} << prop.BasePathOut.string() << std::endl;
-            cout{} << BlackRoot::System::GetExecutablePath() << std::endl;
             if (prop.BasePathOut == BlackRoot::System::GetExecutablePath()) {
                 try {
                     auto tmpPath = this->PersistentDirectory / "~old.exe";
@@ -544,10 +669,9 @@ void FileChangeMonitor::UpdatePipeOutbox()
                         this->FileSource->Remove(tmpPath);
                     }
                     this->FileSource->Rename(prop.BasePathOut, tmpPath);
-                    cout{} << "Renamed the current exe!" << std::endl;
+                    cout{} << std::endl << "Renamed the current exe..." << std::endl;
                 }
                 catch (...) {
-                    cout{} << "Couldn't rename exe!" << std::endl;
                 }
             }
         }
@@ -774,7 +898,7 @@ void FileChangeMonitor::SaveToPersistent()
         }
         this->FileSource->Rename(outPathWrite, outPathFin);
     }
-    catch (std::exception * e) {
+    catch (std::exception e) {
         // TODO
         return;
     }
@@ -830,6 +954,26 @@ FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddMonitoredPath(Path pat
     this->MonitoredPaths[id] = monPath;
 
     this->SuspectPaths.push_back(id);
+
+    return id;
+}
+
+FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddMonitoredWildcard(Path path)
+{
+    for (auto it : this->MonitoredWildcards) {
+        if (it.second.Check.GetCheckPath() != path)
+            continue;
+        return it.first;
+    }
+
+    MonWild monWild;
+    monWild.SetDefault();
+    monWild.Check.SetCheckPath(path);
+
+    auto id = this->GetNewID();
+    this->MonitoredWildcards[id] = monWild;
+
+    this->SuspectWildcards.push_back(id);
 
     return id;
 }
@@ -900,6 +1044,20 @@ FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddPipe(PipeProp pipe)
     return id;
 }
 
+FileChangeMonitor::InternalID FileChangeMonitor::FindOrAddPipeWildcards(PipeWild wild)
+{
+    for (auto & it : this->PipeWildcards) {
+        if (!it.second.EqualsAbstractly(wild))
+            continue;
+        return it.first;
+    }
+
+    auto id = this->GetNewID();
+    this->PipeWildcards[id] = wild;
+
+    return id;
+}
+
 void FileChangeMonitor::MakeUsersOfPathDirty(InternalID id)
 {
         // Check hubs
@@ -916,6 +1074,16 @@ void FileChangeMonitor::MakeUsersOfPathDirty(InternalID id)
         if (std::find(dep.begin(), dep.end(), id) == dep.end())
             continue;
         this->FutureDirtyPipes.push_back(it.first);
+    }
+}
+
+void FileChangeMonitor::MakeUsersOfWildcardDirty(InternalID id)
+{
+        // Check pipe wildcards
+    for (auto it : this->PipeWildcards) {
+        if (id != it.second.WildcardDependency)
+            continue;
+        this->FutureDirtyPipeWildcards.push_back(it.first);
     }
 }
 
@@ -1344,6 +1512,14 @@ void MonitoredPath::SetDefault()
     this->Timeout    = std::chrono::system_clock::now();
 }
 
+void MonitoredWildcard::SetDefault()
+{
+    this->Check.RemoveFound();
+    this->Check.SetCheckPath("");
+    this->Check.SetWildcard("*");
+    this->Check.SetDelimiters("~", "~");
+}
+
 void HubProperties::SetDefault()
 {
     this->PathDependencies.resize(0);
@@ -1371,7 +1547,8 @@ bool HubProperties::EqualsAbstractly(const HubProperties rh)
 void PipeProperties::SetDefault()
 {
     this->PathDependencies.resize(0);
-
+    
+    this->Tool          = "";
     this->BasePathIn    = "";
     this->BasePathOut   = "";
 
@@ -1391,6 +1568,39 @@ bool PipeProperties::EqualsAbstractly(const PipeProperties rh)
         return false;
     if (this->HubDependency != Monitor::InternalIDNone &&
         this->HubDependency != rh.HubDependency)
+        return false;
+    if (!(this->Settings == rh.Settings))
+        return false;
+    return true;
+}
+
+void PipeWildcards::SetDefault()
+{
+    this->Tool          = "";
+    this->BasePathIn    = "";
+    this->BasePathOut   = "";
+    
+    this->InputProcessProp.SetDefault();
+
+    this->HubDependency       = Monitor::InternalIDNone;
+    this->WildcardDependency  = Monitor::InternalIDNone;
+
+    this->Settings      = {};
+}
+
+bool PipeWildcards::EqualsAbstractly(const PipeWildcards rh)
+{
+    if (0 != this->Tool.compare(rh.Tool))
+        return false;
+    if (this->BasePathIn != rh.BasePathIn)
+        return false;
+    if (this->BasePathOut != rh.BasePathOut)
+        return false;
+    if (this->HubDependency != Monitor::InternalIDNone &&
+        this->HubDependency != rh.HubDependency)
+        return false;
+    if (this->WildcardDependency != Monitor::InternalIDNone &&
+        this->WildcardDependency != rh.WildcardDependency)
         return false;
     if (!(this->Settings == rh.Settings))
         return false;
