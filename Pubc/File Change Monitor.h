@@ -221,6 +221,8 @@ namespace Monitor {
 
         void    SetWrangler(Pipeline::IWrangler*);
 
+        JSON    AsynchGetTrackedInformation();
+
         void    Begin();
         void    EndAndWait();
 

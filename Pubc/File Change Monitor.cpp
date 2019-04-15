@@ -627,6 +627,41 @@ void FileChangeMonitor::AsynchReceiveTaskResult(const WranglerTaskResult& result
     this->WranglerResultCount += 1;
 }
 
+JSON FileChangeMonitor::AsynchGetTrackedInformation()
+{
+    std::unique_lock<std::mutex> lock(this->MutexAccessFiles);
+    
+    JSON paths;
+    for (auto & it : this->MonitoredPaths) {
+        auto & prop = it.second;
+        paths += {
+            { "path", this->SimpleFormatPath(prop.Path).string() }
+        };
+    }
+
+    JSON hubs;
+    for (auto & it : this->HubProperties) {
+        auto & prop = it.second;
+        hubs += {
+            { "path", this->SimpleFormatPath(prop.Path).string() }
+        };
+    }
+
+    JSON wild;
+    for (auto & it : this->PipeWildcards) {
+        auto & prop = it.second;
+        wild += {
+            { "path", this->SimpleFormatPath(prop.BasePathIn).string() }
+        };
+    }
+
+    return {
+        { "paths" , paths },
+        { "hubs" , hubs },
+        { "wildcards" , wild }
+    };
+}
+
     //  Update outbox / inbox
     // --------------------
 
