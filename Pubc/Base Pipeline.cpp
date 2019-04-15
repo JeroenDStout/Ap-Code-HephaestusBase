@@ -19,6 +19,7 @@ TB_MESSAGES_BEGIN_DEFINE(Pipeline);
 TB_MESSAGES_ENUM_BEGIN_MEMBER_FUNCTIONS(Pipeline);
 TB_MESSAGES_ENUM_MEMBER_FUNCTION(Pipeline, setReferenceDirectory);
 TB_MESSAGES_ENUM_MEMBER_FUNCTION(Pipeline, setPersistentDirectory);
+TB_MESSAGES_ENUM_MEMBER_FUNCTION(Pipeline, http);
 TB_MESSAGES_ENUM_END_MEMBER_FUNCTIONS(Pipeline);
 
 TB_MESSAGES_END_DEFINE(Pipeline);
@@ -84,4 +85,63 @@ void Pipeline::_setReferenceDirectory(Toolbox::Messaging::IAsynchMessage * messa
     this->PipeProps.Monitor.SetPersistentDirectory(Toolbox::Core::GetEnvironment()->GetRefDir() / s);
 
     message->SetOK();
+}
+
+void Pipeline::_http(Toolbox::Messaging::IAsynchMessage * msg)
+{
+    using JSON = BlackRoot::Format::JSON;
+
+
+	std::stringstream ss;
+        
+	ss << "<!doctype html>" << std::endl
+		<< "<html>" << std::endl
+		<< " <head>" << std::endl
+		<< "  <title>Pipeline</title>" << std::endl
+		<< " </head>" << std::endl
+		<< " <body>" << std::endl
+		<< "  <h1>Pipeline</h1>" << std::endl
+		<< "  <p><b>Available pipeline tools:</b></p><p>" << this->PipeProps.Wrangler.GetAvailableTools() << "</p>" << std::endl
+		<< "  <p><b>Hubs tracked:</b></p><p>";
+        
+    JSON info = this->PipeProps.Monitor.AsynchGetTrackedInformation();
+    
+    JSON hubs = info["hubs"];
+    if (hubs.is_array()) {
+        bool anyWritten = false;
+        for (auto & it : hubs) {
+            if (anyWritten) ss << "<br/>";
+		    ss << it["path"].get<std::string>();
+            anyWritten = true;
+        }
+    }
+
+	ss	<< "  </p><p><b>Paths tracked:</b></p><p>";
+    JSON paths = info["paths"];
+    if (paths.is_array()) {
+        bool anyWritten = false;
+        for (auto & it : paths) {
+            if (anyWritten) ss << "<br/>";
+		    ss << it["path"].get<std::string>();
+            anyWritten = true;
+        }
+    }
+
+	ss	<< "  </p><p><b>Wildcards:</b></p><p>";
+    JSON wild = info["wildcards"];
+    if (wild.is_array()) {
+        bool anyWritten = false;
+        for (auto & it : wild) {
+            if (anyWritten) ss << "<br/>";
+		    ss << it["path"].get<std::string>();
+            anyWritten = true;
+        }
+    }
+        
+    ss << "</p>" << std::endl
+		<< " </body>" << std::endl
+		<< "</html>";
+
+    msg->Response = { { "http", ss.str() } };
+    msg->SetOK();
 }

@@ -45,6 +45,7 @@ namespace Base {
 
         TB_MESSAGES_DECLARE_MEMBER_FUNCTION(setReferenceDirectory);
         TB_MESSAGES_DECLARE_MEMBER_FUNCTION(setPersistentDirectory);
+        TB_MESSAGES_DECLARE_MEMBER_FUNCTION(http);
 	};
 
 }
