@@ -8,8 +8,6 @@
 
 #pragma once
 
-#include "ToolboxBase/Pubc/Base Messages.h"
-
 #include "HephaestusBase/Pubc/Interface Pipeline.h"
 #include "HephaestusBase/Pubc/File Change Monitor.h"
 #include "HephaestusBase/Pubc/Pipe Wrangler.h"
@@ -18,34 +16,37 @@ namespace Hephaestus {
 namespace Base {
 
 	class Pipeline : public Hephaestus::Core::IPipeline {
-        TB_MESSAGES_DECLARE_RECEIVER(Pipeline, Hephaestus::Core::IPipeline);
+        CON_RMR_DECLARE_CLASS(Pipeline, Hephaestus::Core::IPipeline);
 
         using FileMonitor  = Hephaestus::Pipeline::Monitor::FileChangeMonitor;
         using PipeWrangler = Hephaestus::Pipeline::Wrangler::PipeWrangler;
     protected:
 
-        struct __Pipeprops {
-            bool        ProcessingActive;
+        struct __PipeProps {
+            bool            Processing_Active;
 
             FileMonitor     Monitor;
             PipeWrangler    Wrangler;
 
-        } PipeProps;
+        } Pipe_Props;
 
 	public:
         ~Pipeline() override { ; }
-
-        void Initialise(const BlackRoot::Format::JSON param) override;
-        void Deinitialise(const BlackRoot::Format::JSON param) override;
-
-        void AddBaseHubFile(const BlackRoot::IO::FilePath) override;
         
-        void StartProcessing() override;
-        void StopProcessing() override;
+        void initialise(const JSON) override;
+        void deinitialise(const JSON) override;
 
-        TB_MESSAGES_DECLARE_MEMBER_FUNCTION(setReferenceDirectory);
-        TB_MESSAGES_DECLARE_MEMBER_FUNCTION(setPersistentDirectory);
-        TB_MESSAGES_DECLARE_MEMBER_FUNCTION(http);
+        void add_base_hub_file(const Path) override;
+
+        void start_processing() override;
+        void stop_processing() override;
+        
+            // Http
+
+        void savvy_handle_http(const JSON httpRequest, JSON & httpReply, std::string & outBody);
+
+        CON_RMR_DECLARE_FUNC(set_reference_directory);
+        CON_RMR_DECLARE_FUNC(set_persistent_directory);
 	};
 
 }

@@ -11,29 +11,32 @@ namespace Hephaestus {
 namespace Core {
 
 	class Environment : public Toolbox::Base::BaseEnvironment {
-        TB_MESSAGES_DECLARE_RECEIVER(Environment, Toolbox::Base::BaseEnvironment);
+        CON_RMR_DECLARE_CLASS(Environment, Toolbox::Base::BaseEnvironment);
 
     protected:
         Core::IPipeline * Pipeline;
 
-    public:
-        void InternalSetupRelayMap() override;
+    //    void internal_setup_relay_map() override;
 
-        void InternalMessageSendToPip(std::string, Toolbox::Messaging::IAsynchMessage*);
+            // Typed
         
+        virtual Core::IPipeline * internal_allocate_pipeline();
     public:
         Environment();
         ~Environment() override;
         
-        void UnloadAll() override;
+            // Control
         
-        void InternalCompileStats(BlackRoot::Format::JSON &) override;
+        void create_pipeline();
+        void internal_unload_all() override;
 
-        TB_MESSAGES_DECLARE_MEMBER_FUNCTION(createPipeline);
+            // Util
 
-        virtual Core::IPipeline * AllocatePipeline();
+        void internal_compile_stats(JSON &) override;
 
-        void CreatePipeline();
+            // Message
+        
+        CON_RMR_DECLARE_FUNC(create_pipeline);
 	};
 
 }

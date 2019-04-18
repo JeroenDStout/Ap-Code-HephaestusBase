@@ -2,18 +2,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+#include "BlackRoot/Pubc/Assert.h"
+
 #include "HephaestusBase/Pubc/Environment.h"
 #include "HephaestusBase/Pubc/Base Pipeline.h"
 
 using namespace Hephaestus::Core;
 
-TB_MESSAGES_BEGIN_DEFINE(Environment);
+    //  Relay message receiver
+    // --------------------
 
-TB_MESSAGES_ENUM_BEGIN_MEMBER_FUNCTIONS(Environment);
-TB_MESSAGES_ENUM_MEMBER_FUNCTION(Environment, createPipeline);
-TB_MESSAGES_ENUM_END_MEMBER_FUNCTIONS(Environment);
+CON_RMR_DEFINE_CLASS(Environment);
+CON_RMR_REGISTER_FUNC(Environment, create_pipeline);
 
-TB_MESSAGES_END_DEFINE(Environment);
+    //  Setup
+    // --------------------
 
 Environment::Environment()
 {
@@ -24,60 +27,57 @@ Environment::~Environment()
 {
 }
 
-void Environment::UnloadAll()
+    //  Control
+    // --------------------
+
+void Environment::create_pipeline()
 {
-    this->MessengerBaseClass::UnloadAll();
+    using namespace std::placeholders;
+
+    this->Pipeline = this->internal_allocate_pipeline();
+    this->Pipeline->initialise({});
+    
+    this->Simple_Relay.Call_Map["pipe"] = std::bind(&Core::IPipeline::rmr_handle_message_immediate, this->Pipeline, _1);
+}
+
+void Environment::internal_unload_all()
+{
+    this->RelayReceiverBaseClass::internal_unload_all();
 
     if (this->Pipeline) {
-        this->Pipeline->Deinitialise(nullptr);
+        this->Pipeline->deinitialise({});
     }
+
+    this->Simple_Relay.Call_Map.erase("pipe");
 }
 
-void Environment::InternalSetupRelayMap()
-{
-    this->BaseEnvironment::InternalSetupRelayMap();
-    
-    this->MessageRelay.Emplace("pip", this, &BaseEnvironment::InternalMessageRelayToNone, this, &BaseEnvironment::InternalMessageSendToNone);
-}
+    //  Util
+    // --------------------
 
-void Environment::InternalCompileStats(BlackRoot::Format::JSON & json)
+void Environment::internal_compile_stats(JSON & json)
 {
-    this->MessengerBaseClass::InternalCompileStats(json);
+    this->RelayReceiverBaseClass::internal_compile_stats(json);
 
     BlackRoot::Format::JSON & Managers = json["Managers"];
     Managers["Pipeline"]   = this->Pipeline    ? "Loaded" : "Not Loaded";
 }
 
-IPipeline * Environment::AllocatePipeline()
+    //  Typed
+    // --------------------
+
+IPipeline * Environment::internal_allocate_pipeline()
 {
-    return new Hephaestus::Base::Pipeline();
+    return new Base::Pipeline;
 }
 
-void Environment::CreatePipeline()
+    //  Messages
+    // --------------------
+
+void Environment::_create_pipeline(Conduits::Raw::IRelayMessage * msg) noexcept
 {
-    Toolbox::Messaging::JSON param;
-
-    this->Pipeline = this->AllocatePipeline();
-    this->Pipeline->Initialise( param );
-    
-    this->MessageRelay.Emplace("pip", this, &BaseEnvironment::InternalMessageRelayToNone, this, &Environment::InternalMessageSendToPip);
-}
-
-void Environment::InternalMessageSendToPip(std::string, Toolbox::Messaging::IAsynchMessage *message)
-{
-    this->Pipeline->MessageReceiveImmediate(message);
-}
-
-void Environment::_createPipeline(Toolbox::Messaging::IAsynchMessage * msg)
-{
-    if (this->Pipeline) {
-        msg->Response = { "Pipeline already exists" };
-        msg->SetFailed();
-        return;
-    }
-
-    msg->Response = { "Creating Pipeline" };
-    msg->SetOK();
-
-    this->CreatePipeline();
+    this->savvy_try_wrap(msg, [&] {
+        DbAssertMsgFatal(!this->Pipeline, "Pipeline already exists");
+        this->create_pipeline();
+        msg->set_OK();
+    });
 }

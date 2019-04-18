@@ -12,17 +12,12 @@
 #include "BlackRoot/Pubc/Threaded IO Stream.h"
 
 #include "ToolboxBase/Pubc/Entry.h"
-#include "ToolboxBase/Pubc/Base Messages.h"
 #include "ToolboxBase/Pubc/Environment Bootstrap.h"
 
 #include "HephaestusBase/Pubc/Version.h"
 #include "HephaestusBase/Pubc/Environment.h"
 
 #include "HephaestusBase/Pubc/Register.h"
-
-void envTask(Hephaestus::Core::Environment * env) {
-	env->Run();
-}
 
 #include <cstdio>
 #include <iostream>
@@ -32,26 +27,30 @@ void envTask(Hephaestus::Core::Environment * env) {
 #include <array>
 #include <complex>
 
-int hepMain(Toolbox::Util::EnvironmentBootstrap &bootstrap)
+int Hep_Main(Toolbox::Util::EnvironmentBootstrap &bootstrap)
 {
     using cout = BlackRoot::Util::Cout;
     
+        // Introduce ourselves
     cout{} << BlackRoot::Repo::VersionRegistry::GetBootString() << std::endl << std::endl;
 
+        // Create an environment and start its thread
 	Hephaestus::Core::Environment * environment = new Hephaestus::Core::Environment();
-	Toolbox::Core::SetEnvironment(environment);
-	std::thread t1(envTask, environment);
+	Toolbox::Core::Set_Environment(environment);
+	std::thread t1([=]{
+        environment->run_with_current_thread();
+    });
     
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    bootstrap.SetupEnvironment(environment);
+    bootstrap.setup_environment(environment);
 
-    if (!bootstrap.ExecuteFromBootFile()) {
+    if (!bootstrap.execute_from_boot_file()) {
         cout{} << "Default start-up" << std::endl;
 
-        if (!bootstrap.ExecuteFromJSON( R"(
-                { "serious" : [{ "env" : [ "createSocketMan" ] },
-                               { "env" : [ "createPipeline" ] }
+        if (!bootstrap.execute_from_json( R"(
+                { "serious" : [ { "env / create_socketman" : {} },
+                                { "env / create_pipeline"  : {} }
                               ]
                 } )"_json ))
         {
@@ -62,12 +61,10 @@ int hepMain(Toolbox::Util::EnvironmentBootstrap &bootstrap)
 
 End:
     t1.join();
-    
-    environment->UnloadAll();
 
     delete environment;
 
     return 0;
 }
 
-TB_STARTFUNC_DEF(hepMain);
+TB_STARTFUNC_DEF(Hep_Main);

@@ -7,28 +7,31 @@
 #include "BlackRoot/Pubc/JSON.h"
 #include "BlackRoot/Pubc/Files Types.h"
 
-#include "ToolboxBase/Pubc/Base Messages.h"
+#include "Conduits/Pubc/Savvy Relay Receiver.h"
 
 namespace Hephaestus {
 namespace Core {
 
-	class IPipeline : public virtual Toolbox::Messaging::BaseMessageReceiver {
-        TB_MESSAGES_DECLARE_RECEIVER(IPipeline,  Toolbox::Messaging::BaseMessageReceiver);
+	class IPipeline : public Conduits::SavvyRelayMessageReceiver {
+        CON_RMR_DECLARE_CLASS(IPipeline, SavvyRelayMessageReceiver);
+
+        using JSON = BlackRoot::Format::JSON;
+        using Path = BlackRoot::IO::FilePath;
 
 	public:
         virtual ~IPipeline() { ; }
 
-        virtual void Initialise(const BlackRoot::Format::JSON) = 0;
-        virtual void Deinitialise(const BlackRoot::Format::JSON) = 0;
+        virtual void initialise(const JSON) = 0;
+        virtual void deinitialise(const JSON) = 0;
 
-        virtual void AddBaseHubFile(const BlackRoot::IO::FilePath) = 0;
+        virtual void add_base_hub_file(const Path) = 0;
 
-        virtual void StartProcessing() = 0;
-        virtual void StopProcessing() = 0;
-
-        TB_MESSAGES_DECLARE_MEMBER_FUNCTION(startProcessing);
-        TB_MESSAGES_DECLARE_MEMBER_FUNCTION(stopProcessing);
-        TB_MESSAGES_DECLARE_MEMBER_FUNCTION(addBaseHubFile);
+        virtual void start_processing() = 0;
+        virtual void stop_processing() = 0;
+        
+        CON_RMR_DECLARE_FUNC(start_processing);
+        CON_RMR_DECLARE_FUNC(stop_processing);
+        CON_RMR_DECLARE_FUNC(add_base_hub_file);
 	};
 
 }

@@ -8,36 +8,36 @@
 
 using namespace Hephaestus::Core;
 
-TB_MESSAGES_BEGIN_DEFINE(IPipeline);
+    //  Relay message receiver
+    // --------------------
 
-TB_MESSAGES_ENUM_BEGIN_MEMBER_FUNCTIONS(IPipeline);
-TB_MESSAGES_ENUM_MEMBER_FUNCTION(IPipeline, startProcessing);
-TB_MESSAGES_ENUM_MEMBER_FUNCTION(IPipeline, stopProcessing);
-TB_MESSAGES_ENUM_MEMBER_FUNCTION(IPipeline, addBaseHubFile);
-TB_MESSAGES_ENUM_END_MEMBER_FUNCTIONS(IPipeline);
+CON_RMR_DEFINE_CLASS(IPipeline);
 
-TB_MESSAGES_END_DEFINE(IPipeline);
+CON_RMR_REGISTER_FUNC(IPipeline, start_processing);
+CON_RMR_REGISTER_FUNC(IPipeline, stop_processing);
+CON_RMR_REGISTER_FUNC(IPipeline, add_base_hub_file);
 
-void IPipeline::_startProcessing(Toolbox::Messaging::IAsynchMessage * message)
+void IPipeline::_start_processing(Conduits::Raw::IRelayMessage * msg) noexcept
 {
-    this->StartProcessing();
-
-    message->SetOK();
+    this->savvy_try_wrap(msg, [&]{
+        this->start_processing();
+        msg->set_OK();
+    });
 }
 
-void IPipeline::_stopProcessing(Toolbox::Messaging::IAsynchMessage * message)
+void IPipeline::_stop_processing(Conduits::Raw::IRelayMessage * msg) noexcept
 {
-    this->StopProcessing();
-
-    message->SetOK();
+    this->savvy_try_wrap(msg, [&]{
+        this->stop_processing();
+        msg->set_OK();
+    });
 }
 
-void IPipeline::_addBaseHubFile(Toolbox::Messaging::IAsynchMessage * message)
+void IPipeline::_add_base_hub_file(Conduits::Raw::IRelayMessage * msg) noexcept
 {
-    // Todo: msg safety
-
-    std::string s = message->Message.begin().value();
-    this->AddBaseHubFile(s);
-
-    message->SetOK();
+    this->savvy_try_wrap(msg, [&]{
+        JSON json = JSON::parse((char*)msg->get_message_segment(0).Data);
+        this->add_base_hub_file(json["path"].get<std::string>());
+        msg->set_OK();
+    });
 }

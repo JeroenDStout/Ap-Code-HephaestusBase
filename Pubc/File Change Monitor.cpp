@@ -39,6 +39,7 @@ FileChangeMonitor::FileChangeMonitor()
 {
     this->NextID        = 0;
     this->CurrentState  = State::Stopped;
+    this->TargetState   = State::Stopped;
 
     this->OriginalHubDependancy = this->GetNewID();
 

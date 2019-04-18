@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+#include "BlackRoot/Pubc/Assert.h"
 #include "BlackRoot/Pubc/Threaded IO Stream.h"
 #include "BlackRoot/Pubc/Exception.h"
 #include "BlackRoot/Pubc/Sys Path.h"
@@ -14,83 +15,100 @@
 using namespace Hephaestus::Base;
 namespace fs = std::experimental::filesystem;
 
-TB_MESSAGES_BEGIN_DEFINE(Pipeline);
+    //  Relay message receiver
+    // --------------------
 
-TB_MESSAGES_ENUM_BEGIN_MEMBER_FUNCTIONS(Pipeline);
-TB_MESSAGES_ENUM_MEMBER_FUNCTION(Pipeline, setReferenceDirectory);
-TB_MESSAGES_ENUM_MEMBER_FUNCTION(Pipeline, setPersistentDirectory);
-TB_MESSAGES_ENUM_MEMBER_FUNCTION(Pipeline, http);
-TB_MESSAGES_ENUM_END_MEMBER_FUNCTIONS(Pipeline);
+CON_RMR_DEFINE_CLASS(Pipeline);
 
-TB_MESSAGES_END_DEFINE(Pipeline);
+CON_RMR_REGISTER_FUNC(Pipeline, set_reference_directory);
+CON_RMR_REGISTER_FUNC(Pipeline, set_persistent_directory);
+//CON_RMR_REGISTER_FUNC(Pipeline, http);
 
-void Pipeline::Initialise(const BlackRoot::Format::JSON param)
+    //  Setup
+    // --------------------
+
+void Pipeline::initialise(const JSON param)
 {
-    this->PipeProps.Monitor.SetReferenceDirectory(Toolbox::Core::GetEnvironment()->GetRefDir() / "../../");
-    this->PipeProps.Monitor.SetPersistentDirectory(Toolbox::Core::GetEnvironment()->GetRefDir() / "../../.hep/");
-    this->PipeProps.Monitor.SetWrangler(&this->PipeProps.Wrangler);
+    auto env_ref_dir = Toolbox::Core::Get_Environment()->get_ref_dir();
+
+    this->Pipe_Props.Monitor.SetReferenceDirectory(env_ref_dir / "../..");
+    this->Pipe_Props.Monitor.SetPersistentDirectory(env_ref_dir / "../../.hep");
+    this->Pipe_Props.Monitor.SetWrangler(&this->Pipe_Props.Wrangler);
 
     for (const auto & it : Hephaestus::Pipeline::PipeRegistry::GetPipeList()) {
-        this->PipeProps.Wrangler.RegisterTool(it);
+        this->Pipe_Props.Wrangler.RegisterTool(it);
     }
 }
 
-void Pipeline::Deinitialise(const BlackRoot::Format::JSON param)
+void Pipeline::deinitialise(const JSON param)
 {
 }
 
-void Pipeline::AddBaseHubFile(BlackRoot::IO::FilePath str)
+void Pipeline::add_base_hub_file(const Path str)
 {
     using cout      = BlackRoot::Util::Cout;
     using FilePath  = BlackRoot::IO::FilePath;
+    
+    auto base_dir = Toolbox::Core::Get_Environment()->get_ref_dir();
+    base_dir = fs::canonical(base_dir / str);
 
-    FilePath base = Toolbox::Core::GetEnvironment()->GetRefDir();
-    base = fs::canonical(base / str);
+    cout{} << "Pipeline adding hub file " << std::endl << " " << base_dir << std::endl;
 
-    cout{} << "Pipeline adding hub file " << std::endl << " " << base << std::endl;
-
-    this->PipeProps.Monitor.AddBaseHubFile(base);
+    this->Pipe_Props.Monitor.AddBaseHubFile(base_dir);
 }
 
-void Pipeline::StartProcessing()
+void Pipeline::start_processing()
 {
     using cout = BlackRoot::Util::Cout;
-    cout{} << "Available pipeline tools: " << std::endl << " " << this->PipeProps.Wrangler.GetAvailableTools() << std::endl;
+    cout{} << "Available pipeline tools: " << std::endl << " " << this->Pipe_Props.Wrangler.GetAvailableTools() << std::endl;
 
-    this->PipeProps.Monitor.Begin();
-    this->PipeProps.Wrangler.Begin();
+    this->Pipe_Props.Monitor.Begin();
+    this->Pipe_Props.Wrangler.Begin();
 }
 
-void Pipeline::StopProcessing()
+void Pipeline::stop_processing()
 {
-    this->PipeProps.Monitor.EndAndWait();
-    this->PipeProps.Wrangler.EndAndWait();
+    this->Pipe_Props.Monitor.EndAndWait();
+    this->Pipe_Props.Wrangler.EndAndWait();
 }
 
-void Pipeline::_setPersistentDirectory(Toolbox::Messaging::IAsynchMessage * message)
+void Pipeline::_set_persistent_directory(Conduits::Raw::IRelayMessage * msg) noexcept
 {
-    // Todo: msg safety
+    this->savvy_try_wrap_read_json(msg, 0, [&](JSON json) {
+        auto dir = Toolbox::Core::Get_Environment()->get_ref_dir();
 
-    std::string s = message->Message.begin().value();
-    this->PipeProps.Monitor.SetPersistentDirectory(Toolbox::Core::GetEnvironment()->GetRefDir() / s);
+        if (json.is_object()) {
+            json = json["path"];
+        }
 
-    message->SetOK();
+        DbAssertMsgFatal(json.is_string(), "Malformed JSON: cannot get path");
+
+        this->Pipe_Props.Monitor.SetPersistentDirectory(dir / json.get<JSON::string_t>());
+        msg->set_OK();
+    });
 }
 
-void Pipeline::_setReferenceDirectory(Toolbox::Messaging::IAsynchMessage * message)
+void Pipeline::_set_reference_directory(Conduits::Raw::IRelayMessage * msg) noexcept
 {
-    // Todo: msg safety
+    this->savvy_try_wrap_read_json(msg, 0, [&](JSON json) {
+        auto dir = Toolbox::Core::Get_Environment()->get_ref_dir();
 
-    std::string s = message->Message.begin().value();
-    this->PipeProps.Monitor.SetPersistentDirectory(Toolbox::Core::GetEnvironment()->GetRefDir() / s);
+        if (json.is_object()) {
+            json = json["path"];
+        }
 
-    message->SetOK();
+        DbAssertMsgFatal(json.is_string(), "Malformed JSON: cannot get path");
+
+        this->Pipe_Props.Monitor.SetReferenceDirectory(dir / json.get<JSON::string_t>());
+        msg->set_OK();
+    });
 }
+        
+            // Http
 
-void Pipeline::_http(Toolbox::Messaging::IAsynchMessage * msg)
+void Pipeline::savvy_handle_http(const JSON httpRequest, JSON & httpReply, std::string & outBody)
 {
     using JSON = BlackRoot::Format::JSON;
-
 
 	std::stringstream ss;
         
@@ -101,10 +119,12 @@ void Pipeline::_http(Toolbox::Messaging::IAsynchMessage * msg)
 		<< " </head>" << std::endl
 		<< " <body>" << std::endl
 		<< "  <h1>Pipeline</h1>" << std::endl
-		<< "  <p><b>Available pipeline tools:</b></p><p>" << this->PipeProps.Wrangler.GetAvailableTools() << "</p>" << std::endl
+		<< "  <h1>" << this->internal_get_rmr_class_name() << " (base relay)</h1>" << std::endl
+		<< "  <p>" << this->html_create_action_relay_string() << "</p>" << std::endl
+		<< "  <p><b>Available pipeline tools:</b></p><p>" << this->Pipe_Props.Wrangler.GetAvailableTools() << "</p>" << std::endl
 		<< "  <p><b>Hubs tracked:</b></p><p>";
         
-    JSON info = this->PipeProps.Monitor.AsynchGetTrackedInformation();
+    JSON info = this->Pipe_Props.Monitor.AsynchGetTrackedInformation();
     
     JSON hubs = info["hubs"];
     if (hubs.is_array()) {
@@ -142,6 +162,5 @@ void Pipeline::_http(Toolbox::Messaging::IAsynchMessage * msg)
 		<< " </body>" << std::endl
 		<< "</html>";
 
-    msg->Response = { { "http", ss.str() } };
-    msg->SetOK();
+    outBody = ss.str();
 }
