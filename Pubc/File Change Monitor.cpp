@@ -1274,10 +1274,10 @@ void FileChangeMonitor::HandleMonitoredPathMissing(InternalID id)
         // To counter this we just reset to the beginning of time
     prop.LastUpdate = std::chrono::time_point<std::chrono::system_clock>{};
 
-        // Set the timeout to a few seconds from now to prevent a file
+        // Set the timeout to a few second from now to prevent a file
         // being constantly updated
     Monitor::TimePoint currentTime = std::chrono::system_clock::now();
-    prop.Timeout = currentTime + std::chrono::seconds(4);
+    prop.Timeout = currentTime + std::chrono::seconds(1);
 
     this->FutureSuspectPaths.push_back(id);
 }
@@ -1295,10 +1295,10 @@ void FileChangeMonitor::HandleMonitoredPathError(InternalID id, BlackRoot::Debug
     
     cout{} << "File error: " << prop.Path << std::endl;
     
-        // Set the timeout to a few seconds from now to prevent a file
+        // Set the timeout to a second from now to prevent a file
         // being constantly updated
     Monitor::TimePoint currentTime = std::chrono::system_clock::now();
-    prop.Timeout = currentTime + std::chrono::seconds(4);
+    prop.Timeout = currentTime + std::chrono::seconds(1);
 
     this->FutureSuspectPaths.push_back(id);
 
@@ -1323,10 +1323,10 @@ void FileChangeMonitor::HandleHubFileError(InternalID id, BlackRoot::Debug::Exce
         cout{} << "Unknown hub error: " << this->SimpleFormatPath(prop.Path.string()) << std::endl;
     }
     
-        // Set the timeout to a few seconds from now to prevent a file
+        // Set the timeout to a few second from now to prevent a file
         // being constantly updated
     Monitor::TimePoint currentTime = std::chrono::system_clock::now();
-    prop.Timeout = currentTime + std::chrono::seconds(4);
+    prop.Timeout = currentTime + std::chrono::seconds(1);
 
         // As a precaution make all paths used by this hub suspicious
     for (auto & pid : prop.PathDependencies) {
