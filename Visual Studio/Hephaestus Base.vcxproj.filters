@@ -87,6 +87,9 @@
     <ClInclude Include="..\Pubc\Pipe Tool.h">
       <Filter>Pipeline</Filter>
     </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\Meta\licence_name.txt">
@@ -105,5 +108,15 @@
     <CustomBuild Include="..\Meta\generate_meta.txt">
       <Filter>Meta</Filter>
     </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="icon1.ico">
+      <Filter>Meta</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Hephaestus Base.rc">
+      <Filter>Meta</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>
