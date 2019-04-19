@@ -16,6 +16,7 @@ namespace Core {
     protected:
         Core::IPipeline * Pipeline;
 
+        std::string internal_get_favicon_name() override { return "hep_favicon.ico"; }
 
             // Typed
         
