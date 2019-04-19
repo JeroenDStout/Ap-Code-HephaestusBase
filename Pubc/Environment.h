@@ -16,7 +16,6 @@ namespace Core {
     protected:
         Core::IPipeline * Pipeline;
 
-    //    void internal_setup_relay_map() override;
 
             // Typed
         
