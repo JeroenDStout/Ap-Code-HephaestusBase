@@ -43,7 +43,7 @@ namespace Base {
         
             // Http
 
-        void savvy_handle_http(const JSON httpRequest, JSON & httpReply, std::string & outBody);
+        void savvy_handle_http(const JSON httpRequest, JSON & httpReply, std::string & outBody) override;
 
         CON_RMR_DECLARE_FUNC(set_reference_directory);
         CON_RMR_DECLARE_FUNC(set_persistent_directory);
