@@ -1391,7 +1391,7 @@ void FileChangeMonitor::Begin()
 {
     using cout = BlackRoot::Util::Cout;
 
-    DbAssert(this->CurrentState == State::Stopped);
+    DbAssertFatal(this->IsStopped());
     
     this->TargetState  = State::Running;
     this->CurrentState = State::Starting;
