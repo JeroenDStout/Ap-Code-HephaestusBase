@@ -37,7 +37,7 @@ void Environment::create_pipeline()
     this->Pipeline = this->internal_allocate_pipeline();
     this->Pipeline->initialise({});
     
-    this->Simple_Relay.Call_Map["pipe"] = std::bind(&Core::IPipeline::rmr_handle_message_immediate, this->Pipeline, _1);
+    this->Simple_Relay.Call_Map["pipe"] = std::bind(&Core::IPipeline::rmr_handle_message_immediate_and_release, this->Pipeline, _1);
 }
 
 void Environment::internal_unload_all()
