@@ -275,7 +275,6 @@ void FileChangeMonitor::UpdateSuspectWildcard(InternalID id)
     auto & prop = itProp->second;
 
     if (prop.Check.Check(this->FileSource)) {
-        cout{} << std::endl << "Update wildcard" << std::endl << " " << prop.Check.GetCheckPath() << std::endl;
         this->MakeUsersOfWildcardDirty(id);
     }
 }
@@ -316,7 +315,7 @@ void FileChangeMonitor::UpdateDirtyHub(InternalID id)
         // Make dependants orphan before we even complete the hub process
     this->MakeDependantsOnHubOrphan(id);
     
-    cout{} << std::endl << "Hub:" << this->SimpleFormatHub(prop) << std::endl;
+    cout{} << "Hub:" << this->SimpleFormatHub(prop) << std::endl << std::endl;
 
     BlackRoot::IO::BaseFileSource::FCont contents;
     BlackRoot::Format::JSON jsonCont;
@@ -508,8 +507,6 @@ void FileChangeMonitor::CleanupOrphanedHubs()
         if (prop.HubDependency != InternalIDNone)
             continue;
 
-        cout{} << "Cleanup hub " << this->SimpleFormatHub(prop) << std::endl;
-
             // We make this hub's dependants orphaned, which at this
             // point makes this function recursively remove all hubs
         this->MakeDependantsOnHubOrphan(it);
@@ -599,8 +596,6 @@ void FileChangeMonitor::UpdateDirtyPipe(InternalID id)
     }
     
     this->PendingSaveChanges = true;
-    
-    cout{} << std::endl << "Pipe: " << this->SimpleFormatPipe(prop) << std::endl;
 
         // We remove all path dependencies; we 'send off' this pipe and
         // we do not care about it changing while it is already pending
@@ -675,7 +670,7 @@ void FileChangeMonitor::UpdatePipeOutbox()
 
     this->PendingSaveChanges    = true;
     
-    cout{} << std::endl  << "Sending off " << this->OutboxPipes.size() << " pipes." << std::endl;
+    cout{} << "Sending off " << this->OutboxPipes.size() << " pipes." << std::endl << std::endl;
 
     WranglerTaskList tasks(this->OutboxPipes.size());
 
@@ -791,9 +786,9 @@ void FileChangeMonitor::UpdatePipeInbox()
             // This pipe is done!
         this->PendingPipes.erase(std::remove(this->PendingPipes.begin(), this->PendingPipes.end(), id), this->PendingPipes.end());
         
-        cout{} << std::endl << "Pipe done: " << pipe.Tool << " (" << val.ProcessDuration.count() << "ms)" << std::endl
+        cout{} << "Pipe done: " << pipe.Tool << " (" << val.ProcessDuration.count() << "ms)" << std::endl
             << " " << this->SimpleFormatPath(pipe.BasePathIn.string()) << std::endl
-            << " " << this->SimpleFormatPath(pipe.BasePathOut.string()) << std::endl;
+            << " " << this->SimpleFormatPath(pipe.BasePathOut.string()) << std::endl << std::endl;
     }
 }
 
@@ -824,7 +819,7 @@ void FileChangeMonitor::LoadFromPersistent()
             auto time = clock + std::chrono::milliseconds(it["changed"].get<long long>());
             this->FindOrAddMonitoredPath(it["path"].get<std::string>(), &time);
         }
-
+        
         for (auto & it : jsonCont["pipes"]) {
             PipeProp pipe;
             pipe.SetDefault();
@@ -844,6 +839,7 @@ void FileChangeMonitor::LoadFromPersistent()
     }
     catch (BlackRoot::Debug::Exception * e) {
         // TODO
+        delete e;
         return;
     }
     catch (...) {
@@ -942,7 +938,7 @@ void FileChangeMonitor::SaveToPersistent()
         return;
     }
 
-    cout{} << "Saved." << std::endl;
+    cout{} << "Saved\r";
 
     this->PendingSaveChanges = false;
 }
@@ -1318,7 +1314,7 @@ void FileChangeMonitor::HandleMonitoredPathError(InternalID id, BlackRoot::Debug
         return;
     auto & prop = it->second;
     
-    cout{} << "File error: " << prop.Path << std::endl;
+    cout{} << "File error: " << prop.Path << std::endl << std::endl;
     
         // Set the timeout to a second from now to prevent a file
         // being constantly updated
@@ -1342,10 +1338,10 @@ void FileChangeMonitor::HandleHubFileError(InternalID id, BlackRoot::Debug::Exce
     auto & prop = it->second;
     
     if (e) {
-        cout{} << "Hub error: " << this->SimpleFormatPath(prop.Path.string()) << std::endl << " " << e->GetPrettyDescription() << std::endl;
+        cout{} << "Hub error: " << this->SimpleFormatPath(prop.Path.string()) << std::endl << " " << e->GetPrettyDescription() << std::endl << std::endl;
     }
     else {
-        cout{} << "Unknown hub error: " << this->SimpleFormatPath(prop.Path.string()) << std::endl;
+        cout{} << "Unknown hub error: " << this->SimpleFormatPath(prop.Path.string()) << std::endl << std::endl;
     }
     
         // Set the timeout to a few second from now to prevent a file
@@ -1376,10 +1372,10 @@ void FileChangeMonitor::HandleWrangledPipeError(InternalID id, BlackRoot::Debug:
     auto & prop = it->second;
     
     if (e) {
-        cout{} << "Pipe error: " << this->SimpleFormatPath(prop.BasePathIn.string()) << std::endl << " " << e->GetPrettyDescription() << std::endl;
+        cout{} << "Pipe error: " << this->SimpleFormatPath(prop.BasePathIn.string()) << std::endl << " " << e->GetPrettyDescription() << std::endl << std::endl;
     }
     else {
-        cout{} << "Unknown hub error: " << this->SimpleFormatPath(prop.BasePathIn.string()) << std::endl;
+        cout{} << "Unknown hub error: " << this->SimpleFormatPath(prop.BasePathIn.string()) << std::endl << std::endl;
     }
     
         // Set the timeout to a few seconds from now to prevent a file
@@ -1425,7 +1421,7 @@ void FileChangeMonitor::Begin()
     this->UpdateThread = std::thread([&] {
         BlackRoot::System::SetCurrentThreadPriority(BlackRoot::System::ThreadPriority::Lowest);
 
-        cout{} << "Starting FileChangeMontor thread." << std::endl;
+        cout{} << "Starting FileChangeMontor thread." << std::endl << std::endl;
         
         try {
             std::unique_lock<std::mutex> lock(this->MutexAccessFiles);
@@ -1443,7 +1439,7 @@ void FileChangeMonitor::Begin()
             this->HandleThreadException(e);
         }
 
-        cout{} << "Ending FileChangeMontor thread." << std::endl;
+        cout{} << "Ending FileChangeMontor thread." << std::endl << std::endl;
         
         try {
             std::unique_lock<std::mutex> lock(this->MutexAccessFiles);
