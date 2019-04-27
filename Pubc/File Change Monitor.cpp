@@ -696,19 +696,18 @@ void FileChangeMonitor::UpdatePipeOutbox()
 
 #ifdef _WIN32
         std::string outFile = task.FileOut.string();
-        if (outFile.find(".exe") != outFile.npos) {
-            if (prop.BasePathOut == BlackRoot::System::GetExecutablePath()) {
-                try {
-                    auto tmpPath = this->PersistentDirectory / "~old.exe";
-                    this->FileSource->CreateDirectories(this->PersistentDirectory);
-                    if (this->FileSource->Exists(tmpPath)) {
-                        this->FileSource->Remove(tmpPath);
-                    }
-                    this->FileSource->Rename(prop.BasePathOut, tmpPath);
-                    cout{} << std::endl << "Renamed the current exe..." << std::endl;
+        if (outFile.find(".exe") != outFile.npos && this->FileSource->FileExists(task.FileOut)) {
+            try {
+                auto tmpPath = this->PersistentDirectory / task.FileOut.filename().replace_extension("~old");
+                this->FileSource->CreateDirectories(this->PersistentDirectory);
+                if (this->FileSource->Exists(tmpPath)) {
+                    this->FileSource->Remove(tmpPath);
                 }
-                catch (...) {
-                }
+                this->FileSource->Rename(prop.BasePathOut, tmpPath);
+                cout{} << "Renamed [" << this->SimpleFormatPath(outFile) << "]" << std::endl << std::endl;
+            }
+            catch (...) {
+                cout{} << "Tried to rename [" << this->SimpleFormatPath(outFile) << "] but failed." << std::endl << std::endl;
             }
         }
 #endif
