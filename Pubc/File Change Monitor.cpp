@@ -1267,7 +1267,33 @@ void FileChangeMonitor::HandleMonitoredPathMissing(InternalID id)
         return;
     auto & prop = it->second;
     
-    cout{} << "File missing: " << this->SimpleFormatPath(prop.Path) << std::endl;
+        // We need to check if anything actually uses us
+    auto check_used = [&] {
+        for (auto & it : this->HubProperties) {
+            for (auto & sub : it.second.PathDependencies) {
+                if (id != sub)
+                    continue;
+                return true;
+            }
+        }
+        for (auto & it : this->PipeProperties) {
+            for (auto & sub : it.second.PathDependencies) {
+                if (id != sub)
+                    continue;
+                return true;
+            }
+        }
+        return false;
+    };
+
+        // If we were removed, just silently remove
+        // the monitored file
+    if (!check_used()) {
+        this->MonitoredPaths.erase(id);
+        return;
+    }
+
+    cout{} << "File missing: " << this->SimpleFormatPath(prop.Path) << std::endl << std::endl;
     
         // The file might 'come back' by another file being renamed; this
         // might change the contents of the file without changing the time
