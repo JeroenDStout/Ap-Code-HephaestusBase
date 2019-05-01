@@ -17,7 +17,7 @@ CON_RMR_REGISTER_FUNC(IPipeline, start_processing);
 CON_RMR_REGISTER_FUNC(IPipeline, stop_processing);
 CON_RMR_REGISTER_FUNC(IPipeline, add_base_hub_file);
 
-void IPipeline::_start_processing(Conduits::Raw::IRelayMessage * msg) noexcept
+void IPipeline::_start_processing(Conduits::Raw::IMessage * msg) noexcept
 {
     this->savvy_try_wrap(msg, [&]{
         this->start_processing();
@@ -25,7 +25,7 @@ void IPipeline::_start_processing(Conduits::Raw::IRelayMessage * msg) noexcept
     });
 }
 
-void IPipeline::_stop_processing(Conduits::Raw::IRelayMessage * msg) noexcept
+void IPipeline::_stop_processing(Conduits::Raw::IMessage * msg) noexcept
 {
     this->savvy_try_wrap(msg, [&]{
         this->stop_processing();
@@ -33,7 +33,7 @@ void IPipeline::_stop_processing(Conduits::Raw::IRelayMessage * msg) noexcept
     });
 }
 
-void IPipeline::_add_base_hub_file(Conduits::Raw::IRelayMessage * msg) noexcept
+void IPipeline::_add_base_hub_file(Conduits::Raw::IMessage * msg) noexcept
 {
     this->savvy_try_wrap(msg, [&]{
         JSON json = JSON::parse((char*)msg->get_message_segment(0).Data);

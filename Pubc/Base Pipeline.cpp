@@ -72,9 +72,9 @@ void Pipeline::stop_processing()
     this->Pipe_Props.Wrangler.EndAndWait();
 }
 
-void Pipeline::_set_persistent_directory(Conduits::Raw::IRelayMessage * msg) noexcept
+void Pipeline::_set_persistent_directory(Conduits::Raw::IMessage * msg) noexcept
 {
-    this->savvy_try_wrap_read_json(msg, 0, [&](JSON json) {
+    this->savvy_try_wrap_read_json(msg, "", [&](JSON json) {
         auto dir = Toolbox::Core::Get_Environment()->get_ref_dir();
 
         if (json.is_object()) {
@@ -84,11 +84,12 @@ void Pipeline::_set_persistent_directory(Conduits::Raw::IRelayMessage * msg) noe
         DbAssertMsgFatal(json.is_string(), "Malformed JSON: cannot get path");
 
         this->Pipe_Props.Monitor.SetPersistentDirectory(dir / json.get<JSON::string_t>());
+
         msg->set_OK();
     });
 }
 
-void Pipeline::_set_reference_directory(Conduits::Raw::IRelayMessage * msg) noexcept
+void Pipeline::_set_reference_directory(Conduits::Raw::IMessage * msg) noexcept
 {
     this->savvy_try_wrap_read_json(msg, 0, [&](JSON json) {
         auto dir = Toolbox::Core::Get_Environment()->get_ref_dir();

@@ -73,7 +73,7 @@ IPipeline * Environment::internal_allocate_pipeline()
     //  Messages
     // --------------------
 
-void Environment::_create_pipeline(Conduits::Raw::IRelayMessage * msg) noexcept
+void Environment::_create_pipeline(Conduits::Raw::IMessage * msg) noexcept
 {
     this->savvy_try_wrap(msg, [&] {
         DbAssertMsgFatal(!this->Pipeline, "Pipeline already exists");
