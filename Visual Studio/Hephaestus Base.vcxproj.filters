@@ -28,9 +28,6 @@
     <ClCompile Include="../Pubc/Environment.cpp">
       <Filter>Environment</Filter>
     </ClCompile>
-    <ClCompile Include="../Pubc/Base Pipeline.cpp">
-      <Filter>Environment</Filter>
-    </ClCompile>
     <ClCompile Include="..\Pubc\File Change Monitor.cpp">
       <Filter>Pipeline</Filter>
     </ClCompile>
@@ -55,6 +52,9 @@
     <ClCompile Include="..\Pubc\Interface Pipeline.cpp">
       <Filter>Environment</Filter>
     </ClCompile>
+    <ClCompile Include="../Pubc/Base Pipeline.cpp">
+      <Filter>Pipeline</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Pubc\Version.h">
@@ -65,9 +65,6 @@
     </ClInclude>
     <ClInclude Include="..\Pubc\Register.h">
       <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="../Pubc/Base Pipeline.h">
-      <Filter>Environment</Filter>
     </ClInclude>
     <ClInclude Include="../Pubc/Interface Pipeline.h">
       <Filter>Environment</Filter>
@@ -89,6 +86,9 @@
     </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="../Pubc/Base Pipeline.h">
+      <Filter>Pipeline</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
