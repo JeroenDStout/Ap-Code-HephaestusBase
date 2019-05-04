@@ -118,12 +118,11 @@ void Pipeline::savvy_handle_http(const JSON httpRequest, JSON & httpReply, std::
 		<< " <head>" << std::endl
 		<< "  <title>Pipeline</title>" << std::endl
 		<< " </head>" << std::endl
-		<< " <body>" << std::endl
+		<< " <body style=\"padding: 1em 2em 2em 2em\">" << std::endl
 		<< "  <h1>Pipeline</h1>" << std::endl
-		<< "  <h1>" << this->internal_get_rmr_class_name() << " (base relay)</h1>" << std::endl
-		<< "  <p>" << this->html_create_action_relay_string() << "</p>" << std::endl
-		<< "  <p><b>Available pipeline tools:</b></p><p>" << this->Pipe_Props.Wrangler.GetAvailableTools() << "</p>" << std::endl
-		<< "  <p><b>Hubs tracked:</b></p><p>";
+		<< "  <div style=\"padding-left:.5em\">" << this->html_create_action_relay_string() << "</div><br/>" << std::endl
+		<< "  <div><b>Available pipeline tools:</b><div style=\"padding-left:.5em\">" << this->Pipe_Props.Wrangler.GetAvailableTools() << "</div><br/>" << std::endl
+		<< "  <div><b>Hubs tracked:</b></div><div style=\"padding-left:.5em\">";
         
     JSON info = this->Pipe_Props.Monitor.AsynchGetTrackedInformation();
     
@@ -137,7 +136,7 @@ void Pipeline::savvy_handle_http(const JSON httpRequest, JSON & httpReply, std::
         }
     }
 
-	ss	<< "  </p><p><b>Paths tracked:</b></p><p>";
+	ss	<< "  </div><br/><div><b>Paths tracked:</b></div><div style=\"padding-left:.5em\">";
     JSON paths = info["paths"];
     if (paths.is_array()) {
         bool anyWritten = false;
@@ -148,7 +147,7 @@ void Pipeline::savvy_handle_http(const JSON httpRequest, JSON & httpReply, std::
         }
     }
 
-	ss	<< "  </p><p><b>Wildcards:</b></p><p>";
+	ss	<< "  </div><br/><div><b>Wildcards:</b></div><div style=\"padding-left:.5em\">";
     JSON wild = info["wildcards"];
     if (wild.is_array()) {
         bool anyWritten = false;
@@ -159,7 +158,7 @@ void Pipeline::savvy_handle_http(const JSON httpRequest, JSON & httpReply, std::
         }
     }
         
-    ss << "</p>" << std::endl
+    ss << "</div>" << std::endl
 		<< " </body>" << std::endl
 		<< "</html>";
 
