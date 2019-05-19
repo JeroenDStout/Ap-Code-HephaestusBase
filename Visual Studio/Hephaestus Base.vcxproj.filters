@@ -17,12 +17,12 @@
     <Filter Include="Pipe Tools">
       <UniqueIdentifier>{76b7e0bf-a47a-490a-8954-e485a0d7e553}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Version">
+      <UniqueIdentifier>{efbd3c7c-24ff-47fd-af59-eb51566d71b3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="../Pubc/Entry.cpp">
-      <Filter>Core</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Pubc\Version.cpp">
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="../Pubc/Environment.cpp">
@@ -55,16 +55,13 @@
     <ClCompile Include="../Pubc/Base Pipeline.cpp">
       <Filter>Pipeline</Filter>
     </ClCompile>
+    <ClCompile Include="..\Pubc\Version.cpp">
+      <Filter>Version</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Pubc\Version.h">
-      <Filter>Core</Filter>
-    </ClInclude>
     <ClInclude Include="../Pubc/Environment.h">
       <Filter>Environment</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Pubc\Register.h">
-      <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="../Pubc/Interface Pipeline.h">
       <Filter>Environment</Filter>
@@ -90,24 +87,20 @@
     <ClInclude Include="../Pubc/Base Pipeline.h">
       <Filter>Pipeline</Filter>
     </ClInclude>
+    <ClInclude Include="..\Pubc\Version.h">
+      <Filter>Version</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Pubc\Register.h">
+      <Filter>Version</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\Meta\licence_name.txt">
-      <Filter>Meta</Filter>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\Meta\libraries.json">
-      <Filter>Meta</Filter>
-    </None>
     <None Include="..\Meta\contributors.json">
-      <Filter>Meta</Filter>
+      <Filter>Version</Filter>
     </None>
-  </ItemGroup>
-  <ItemGroup>
-    <CustomBuild Include="..\Meta\generate_meta.txt">
-      <Filter>Meta</Filter>
-    </CustomBuild>
+    <None Include="..\Meta\libraries.json">
+      <Filter>Version</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="icon1.ico">
@@ -118,5 +111,20 @@
     <ResourceCompile Include="Hephaestus Base.rc">
       <Filter>Meta</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\Meta\licence_name.txt">
+      <Filter>Version</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <BRVersionDef Include="..\..\BlackRoot\Meta\.brversion">
+      <Filter>Version</Filter>
+    </BRVersionDef>
+  </ItemGroup>
+  <ItemGroup>
+    <BRMetaDef Include="..\..\BlackRoot\Meta\.brmeta">
+      <Filter>Version</Filter>
+    </BRMetaDef>
   </ItemGroup>
 </Project>
